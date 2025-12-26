@@ -1,0 +1,278 @@
+0 verbose cli /usr/local/Cellar/node@20/20.19.5/bin/node /usr/local/opt/node@20/bin/npm
+1 info using npm@10.8.2
+2 info using node@v20.19.5
+3 silly config load:file:/usr/local/Cellar/node@20/20.19.5/lib/node_modules/npm/npmrc
+4 silly config load:file:/Users/home/evolved/music-land/.npmrc
+5 silly config load:file:/Users/home/.npmrc
+6 silly config load:file:/usr/local/etc/npmrc
+7 verbose title npm install @mui/material @emotion/react @emotion/styled @mui/icons-material
+8 verbose argv "install" "@mui/material" "@emotion/react" "@emotion/styled" "@mui/icons-material" "--cache" ".npm-cache" "--no-audit" "--no-fund"
+9 verbose logfile logs-max:10 dir:/Users/home/evolved/music-land/.npm-cache/_logs/2025-12-26T22_44_07_426Z-
+10 verbose logfile /Users/home/evolved/music-land/.npm-cache/_logs/2025-12-26T22_44_07_426Z-debug-0.log
+11 silly packumentCache heap:4345298944 maxSize:1086324736 maxEntrySize:543162368
+12 silly logfile done cleaning log files
+13 silly idealTree buildDeps
+14 silly fetch manifest @emotion/react@^11.14.0
+15 silly packumentCache full:https://registry.npmjs.org/@emotion%2freact cache-miss
+16 http fetch GET 200 https://registry.npmjs.org/@emotion%2freact 79ms (cache hit)
+17 silly packumentCache full:https://registry.npmjs.org/@emotion%2freact set size:196548 disposed:false
+18 silly fetch manifest @emotion/styled@^11.14.1
+19 silly packumentCache full:https://registry.npmjs.org/@emotion%2fstyled cache-miss
+20 http fetch GET 200 https://registry.npmjs.org/@emotion%2fstyled 5ms (cache hit)
+21 silly packumentCache full:https://registry.npmjs.org/@emotion%2fstyled set size:286397 disposed:false
+22 silly fetch manifest @mui/icons-material@^7.3.6
+23 silly packumentCache full:https://registry.npmjs.org/@mui%2ficons-material cache-miss
+24 http fetch GET 200 https://registry.npmjs.org/@mui%2ficons-material 7ms (cache hit)
+25 silly packumentCache full:https://registry.npmjs.org/@mui%2ficons-material set size:496470 disposed:false
+26 silly fetch manifest @mui/material@^7.3.6
+27 silly packumentCache full:https://registry.npmjs.org/@mui%2fmaterial cache-miss
+28 http fetch GET 200 https://registry.npmjs.org/@mui%2fmaterial 7ms (cache hit)
+29 silly packumentCache full:https://registry.npmjs.org/@mui%2fmaterial set size:819991 disposed:false
+30 silly placeDep ROOT @emotion/react@11.14.0 REPLACE for: music-land@0.1.0 want: ^11.14.0
+31 silly placeDep ROOT @emotion/styled@11.14.1 REPLACE for: music-land@0.1.0 want: ^11.14.1
+32 silly placeDep ROOT @mui/icons-material@7.3.6 REPLACE for: music-land@0.1.0 want: ^7.3.6
+33 silly placeDep ROOT @mui/material@7.3.6 REPLACE for: music-land@0.1.0 want: ^7.3.6
+34 silly reify moves {}
+35 verbose reify failed optional dependency /Users/home/evolved/music-land/node_modules/@unrs/resolver-binding-win32-x64-msvc
+36 silly reify mark deleted [
+36 silly reify   '/Users/home/evolved/music-land/node_modules/@unrs/resolver-binding-win32-x64-msvc'
+36 silly reify ]
+37 verbose reify failed optional dependency /Users/home/evolved/music-land/node_modules/@unrs/resolver-binding-win32-ia32-msvc
+38 silly reify mark deleted [
+38 silly reify   '/Users/home/evolved/music-land/node_modules/@unrs/resolver-binding-win32-ia32-msvc'
+38 silly reify ]
+39 verbose reify failed optional dependency /Users/home/evolved/music-land/node_modules/@unrs/resolver-binding-win32-arm64-msvc
+40 silly reify mark deleted [
+40 silly reify   '/Users/home/evolved/music-land/node_modules/@unrs/resolver-binding-win32-arm64-msvc'
+40 silly reify ]
+41 verbose reify failed optional dependency /Users/home/evolved/music-land/node_modules/@unrs/resolver-binding-wasm32-wasi
+42 silly reify mark deleted [
+42 silly reify   '/Users/home/evolved/music-land/node_modules/@unrs/resolver-binding-wasm32-wasi'
+42 silly reify ]
+43 verbose reify failed optional dependency /Users/home/evolved/music-land/node_modules/@napi-rs/wasm-runtime
+44 silly reify mark deleted [ '/Users/home/evolved/music-land/node_modules/@napi-rs/wasm-runtime' ]
+45 verbose reify failed optional dependency /Users/home/evolved/music-land/node_modules/@emnapi/core
+46 silly reify mark deleted [ '/Users/home/evolved/music-land/node_modules/@emnapi/core' ]
+47 verbose reify failed optional dependency /Users/home/evolved/music-land/node_modules/@tybys/wasm-util
+48 silly reify mark deleted [ '/Users/home/evolved/music-land/node_modules/@tybys/wasm-util' ]
+49 verbose reify failed optional dependency /Users/home/evolved/music-land/node_modules/@emnapi/wasi-threads
+50 silly reify mark deleted [ '/Users/home/evolved/music-land/node_modules/@emnapi/wasi-threads' ]
+51 verbose reify failed optional dependency /Users/home/evolved/music-land/node_modules/@unrs/resolver-binding-linux-x64-musl
+52 silly reify mark deleted [
+52 silly reify   '/Users/home/evolved/music-land/node_modules/@unrs/resolver-binding-linux-x64-musl'
+52 silly reify ]
+53 verbose reify failed optional dependency /Users/home/evolved/music-land/node_modules/@unrs/resolver-binding-linux-x64-gnu
+54 silly reify mark deleted [
+54 silly reify   '/Users/home/evolved/music-land/node_modules/@unrs/resolver-binding-linux-x64-gnu'
+54 silly reify ]
+55 verbose reify failed optional dependency /Users/home/evolved/music-land/node_modules/@unrs/resolver-binding-linux-s390x-gnu
+56 silly reify mark deleted [
+56 silly reify   '/Users/home/evolved/music-land/node_modules/@unrs/resolver-binding-linux-s390x-gnu'
+56 silly reify ]
+57 verbose reify failed optional dependency /Users/home/evolved/music-land/node_modules/@unrs/resolver-binding-linux-riscv64-musl
+58 silly reify mark deleted [
+58 silly reify   '/Users/home/evolved/music-land/node_modules/@unrs/resolver-binding-linux-riscv64-musl'
+58 silly reify ]
+59 verbose reify failed optional dependency /Users/home/evolved/music-land/node_modules/@unrs/resolver-binding-linux-riscv64-gnu
+60 silly reify mark deleted [
+60 silly reify   '/Users/home/evolved/music-land/node_modules/@unrs/resolver-binding-linux-riscv64-gnu'
+60 silly reify ]
+61 verbose reify failed optional dependency /Users/home/evolved/music-land/node_modules/@unrs/resolver-binding-linux-ppc64-gnu
+62 silly reify mark deleted [
+62 silly reify   '/Users/home/evolved/music-land/node_modules/@unrs/resolver-binding-linux-ppc64-gnu'
+62 silly reify ]
+63 verbose reify failed optional dependency /Users/home/evolved/music-land/node_modules/@unrs/resolver-binding-linux-arm64-musl
+64 silly reify mark deleted [
+64 silly reify   '/Users/home/evolved/music-land/node_modules/@unrs/resolver-binding-linux-arm64-musl'
+64 silly reify ]
+65 verbose reify failed optional dependency /Users/home/evolved/music-land/node_modules/@unrs/resolver-binding-linux-arm64-gnu
+66 silly reify mark deleted [
+66 silly reify   '/Users/home/evolved/music-land/node_modules/@unrs/resolver-binding-linux-arm64-gnu'
+66 silly reify ]
+67 verbose reify failed optional dependency /Users/home/evolved/music-land/node_modules/@unrs/resolver-binding-linux-arm-musleabihf
+68 silly reify mark deleted [
+68 silly reify   '/Users/home/evolved/music-land/node_modules/@unrs/resolver-binding-linux-arm-musleabihf'
+68 silly reify ]
+69 verbose reify failed optional dependency /Users/home/evolved/music-land/node_modules/@unrs/resolver-binding-linux-arm-gnueabihf
+70 silly reify mark deleted [
+70 silly reify   '/Users/home/evolved/music-land/node_modules/@unrs/resolver-binding-linux-arm-gnueabihf'
+70 silly reify ]
+71 verbose reify failed optional dependency /Users/home/evolved/music-land/node_modules/@unrs/resolver-binding-freebsd-x64
+72 silly reify mark deleted [
+72 silly reify   '/Users/home/evolved/music-land/node_modules/@unrs/resolver-binding-freebsd-x64'
+72 silly reify ]
+73 verbose reify failed optional dependency /Users/home/evolved/music-land/node_modules/@unrs/resolver-binding-darwin-arm64
+74 silly reify mark deleted [
+74 silly reify   '/Users/home/evolved/music-land/node_modules/@unrs/resolver-binding-darwin-arm64'
+74 silly reify ]
+75 verbose reify failed optional dependency /Users/home/evolved/music-land/node_modules/@unrs/resolver-binding-android-arm64
+76 silly reify mark deleted [
+76 silly reify   '/Users/home/evolved/music-land/node_modules/@unrs/resolver-binding-android-arm64'
+76 silly reify ]
+77 verbose reify failed optional dependency /Users/home/evolved/music-land/node_modules/@unrs/resolver-binding-android-arm-eabi
+78 silly reify mark deleted [
+78 silly reify   '/Users/home/evolved/music-land/node_modules/@unrs/resolver-binding-android-arm-eabi'
+78 silly reify ]
+79 verbose reify failed optional dependency /Users/home/evolved/music-land/node_modules/@next/swc-win32-x64-msvc
+80 silly reify mark deleted [
+80 silly reify   '/Users/home/evolved/music-land/node_modules/@next/swc-win32-x64-msvc'
+80 silly reify ]
+81 verbose reify failed optional dependency /Users/home/evolved/music-land/node_modules/@next/swc-win32-arm64-msvc
+82 silly reify mark deleted [
+82 silly reify   '/Users/home/evolved/music-land/node_modules/@next/swc-win32-arm64-msvc'
+82 silly reify ]
+83 verbose reify failed optional dependency /Users/home/evolved/music-land/node_modules/@next/swc-linux-x64-musl
+84 silly reify mark deleted [
+84 silly reify   '/Users/home/evolved/music-land/node_modules/@next/swc-linux-x64-musl'
+84 silly reify ]
+85 verbose reify failed optional dependency /Users/home/evolved/music-land/node_modules/@next/swc-linux-x64-gnu
+86 silly reify mark deleted [
+86 silly reify   '/Users/home/evolved/music-land/node_modules/@next/swc-linux-x64-gnu'
+86 silly reify ]
+87 verbose reify failed optional dependency /Users/home/evolved/music-land/node_modules/@next/swc-linux-arm64-musl
+88 silly reify mark deleted [
+88 silly reify   '/Users/home/evolved/music-land/node_modules/@next/swc-linux-arm64-musl'
+88 silly reify ]
+89 verbose reify failed optional dependency /Users/home/evolved/music-land/node_modules/@next/swc-linux-arm64-gnu
+90 silly reify mark deleted [
+90 silly reify   '/Users/home/evolved/music-land/node_modules/@next/swc-linux-arm64-gnu'
+90 silly reify ]
+91 verbose reify failed optional dependency /Users/home/evolved/music-land/node_modules/@next/swc-darwin-arm64
+92 silly reify mark deleted [
+92 silly reify   '/Users/home/evolved/music-land/node_modules/@next/swc-darwin-arm64'
+92 silly reify ]
+93 verbose reify failed optional dependency /Users/home/evolved/music-land/node_modules/@img/sharp-win32-x64
+94 silly reify mark deleted [ '/Users/home/evolved/music-land/node_modules/@img/sharp-win32-x64' ]
+95 verbose reify failed optional dependency /Users/home/evolved/music-land/node_modules/@img/sharp-win32-ia32
+96 silly reify mark deleted [ '/Users/home/evolved/music-land/node_modules/@img/sharp-win32-ia32' ]
+97 verbose reify failed optional dependency /Users/home/evolved/music-land/node_modules/@img/sharp-win32-arm64
+98 silly reify mark deleted [
+98 silly reify   '/Users/home/evolved/music-land/node_modules/@img/sharp-win32-arm64'
+98 silly reify ]
+99 verbose reify failed optional dependency /Users/home/evolved/music-land/node_modules/@img/sharp-wasm32
+100 silly reify mark deleted [ '/Users/home/evolved/music-land/node_modules/@img/sharp-wasm32' ]
+101 verbose reify failed optional dependency /Users/home/evolved/music-land/node_modules/@img/sharp-linuxmusl-x64
+102 silly reify mark deleted [
+102 silly reify   '/Users/home/evolved/music-land/node_modules/@img/sharp-linuxmusl-x64'
+102 silly reify ]
+103 verbose reify failed optional dependency /Users/home/evolved/music-land/node_modules/@img/sharp-linuxmusl-arm64
+104 silly reify mark deleted [
+104 silly reify   '/Users/home/evolved/music-land/node_modules/@img/sharp-linuxmusl-arm64'
+104 silly reify ]
+105 verbose reify failed optional dependency /Users/home/evolved/music-land/node_modules/@img/sharp-linux-x64
+106 silly reify mark deleted [ '/Users/home/evolved/music-land/node_modules/@img/sharp-linux-x64' ]
+107 verbose reify failed optional dependency /Users/home/evolved/music-land/node_modules/@img/sharp-linux-s390x
+108 silly reify mark deleted [
+108 silly reify   '/Users/home/evolved/music-land/node_modules/@img/sharp-linux-s390x'
+108 silly reify ]
+109 verbose reify failed optional dependency /Users/home/evolved/music-land/node_modules/@img/sharp-linux-riscv64
+110 silly reify mark deleted [
+110 silly reify   '/Users/home/evolved/music-land/node_modules/@img/sharp-linux-riscv64'
+110 silly reify ]
+111 verbose reify failed optional dependency /Users/home/evolved/music-land/node_modules/@img/sharp-linux-ppc64
+112 silly reify mark deleted [
+112 silly reify   '/Users/home/evolved/music-land/node_modules/@img/sharp-linux-ppc64'
+112 silly reify ]
+113 verbose reify failed optional dependency /Users/home/evolved/music-land/node_modules/@img/sharp-linux-arm64
+114 silly reify mark deleted [
+114 silly reify   '/Users/home/evolved/music-land/node_modules/@img/sharp-linux-arm64'
+114 silly reify ]
+115 verbose reify failed optional dependency /Users/home/evolved/music-land/node_modules/@img/sharp-linux-arm
+116 silly reify mark deleted [ '/Users/home/evolved/music-land/node_modules/@img/sharp-linux-arm' ]
+117 verbose reify failed optional dependency /Users/home/evolved/music-land/node_modules/@img/sharp-libvips-linuxmusl-x64
+118 silly reify mark deleted [
+118 silly reify   '/Users/home/evolved/music-land/node_modules/@img/sharp-libvips-linuxmusl-x64'
+118 silly reify ]
+119 verbose reify failed optional dependency /Users/home/evolved/music-land/node_modules/@img/sharp-libvips-linuxmusl-arm64
+120 silly reify mark deleted [
+120 silly reify   '/Users/home/evolved/music-land/node_modules/@img/sharp-libvips-linuxmusl-arm64'
+120 silly reify ]
+121 verbose reify failed optional dependency /Users/home/evolved/music-land/node_modules/@img/sharp-libvips-linux-x64
+122 silly reify mark deleted [
+122 silly reify   '/Users/home/evolved/music-land/node_modules/@img/sharp-libvips-linux-x64'
+122 silly reify ]
+123 verbose reify failed optional dependency /Users/home/evolved/music-land/node_modules/@img/sharp-libvips-linux-s390x
+124 silly reify mark deleted [
+124 silly reify   '/Users/home/evolved/music-land/node_modules/@img/sharp-libvips-linux-s390x'
+124 silly reify ]
+125 verbose reify failed optional dependency /Users/home/evolved/music-land/node_modules/@img/sharp-libvips-linux-riscv64
+126 silly reify mark deleted [
+126 silly reify   '/Users/home/evolved/music-land/node_modules/@img/sharp-libvips-linux-riscv64'
+126 silly reify ]
+127 verbose reify failed optional dependency /Users/home/evolved/music-land/node_modules/@img/sharp-libvips-linux-ppc64
+128 silly reify mark deleted [
+128 silly reify   '/Users/home/evolved/music-land/node_modules/@img/sharp-libvips-linux-ppc64'
+128 silly reify ]
+129 verbose reify failed optional dependency /Users/home/evolved/music-land/node_modules/@img/sharp-libvips-linux-arm64
+130 silly reify mark deleted [
+130 silly reify   '/Users/home/evolved/music-land/node_modules/@img/sharp-libvips-linux-arm64'
+130 silly reify ]
+131 verbose reify failed optional dependency /Users/home/evolved/music-land/node_modules/@img/sharp-libvips-linux-arm
+132 silly reify mark deleted [
+132 silly reify   '/Users/home/evolved/music-land/node_modules/@img/sharp-libvips-linux-arm'
+132 silly reify ]
+133 verbose reify failed optional dependency /Users/home/evolved/music-land/node_modules/@img/sharp-libvips-darwin-arm64
+134 silly reify mark deleted [
+134 silly reify   '/Users/home/evolved/music-land/node_modules/@img/sharp-libvips-darwin-arm64'
+134 silly reify ]
+135 verbose reify failed optional dependency /Users/home/evolved/music-land/node_modules/@img/sharp-darwin-arm64
+136 silly reify mark deleted [
+136 silly reify   '/Users/home/evolved/music-land/node_modules/@img/sharp-darwin-arm64'
+136 silly reify ]
+137 silly ADD
+138 silly ADD
+139 silly ADD
+140 silly ADD
+141 silly ADD
+142 silly ADD
+143 silly ADD
+144 silly ADD
+145 silly ADD
+146 silly ADD
+147 silly ADD
+148 silly ADD
+149 silly ADD
+150 silly ADD
+151 silly ADD
+152 silly ADD
+153 silly ADD
+154 silly ADD
+155 silly ADD
+156 silly ADD
+157 silly ADD
+158 silly ADD
+159 silly ADD
+160 silly ADD
+161 silly ADD
+162 silly ADD
+163 silly ADD
+164 silly ADD
+165 silly ADD
+166 silly ADD
+167 silly ADD
+168 silly ADD
+169 silly ADD
+170 silly ADD
+171 silly ADD
+172 silly ADD
+173 silly ADD
+174 silly ADD
+175 silly ADD
+176 silly ADD
+177 silly ADD
+178 silly ADD
+179 silly ADD
+180 silly ADD
+181 silly ADD
+182 silly ADD
+183 silly ADD
+184 silly ADD
+185 silly ADD
+186 silly ADD
+187 silly ADD
+188 verbose cwd /Users/home/evolved/music-land
+189 verbose os Darwin 24.6.0
+190 verbose node v20.19.5
+191 verbose npm  v10.8.2
+192 verbose exit 0
+193 info ok
