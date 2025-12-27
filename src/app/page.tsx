@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Box, Button, Container, Stack, Typography } from "@mui/material";
 
 export default function Home() {
@@ -6,6 +7,16 @@ export default function Home() {
     <Box sx={{ py: 8 }}>
       <Container maxWidth="md">
         <Stack spacing={4}>
+          <Box>
+            <Image
+              src="/musick-logo.svg"
+              alt="Musick.Studio"
+              width={260}
+              height={52}
+              priority
+              style={{ height: 44, width: "auto" }}
+            />
+          </Box>
           <Stack spacing={1}>
             <Typography variant="h3" fontWeight={800}>
               Music-Land

@@ -11,7 +11,11 @@ function statusFor(_stemType: StemType, _columnIndex: number): StemBoxStatus {
   return "empty";
 }
 
-export function StemGrid(props: { columnCount: number; onAddColumn: () => void }) {
+export function StemGrid(props: {
+  columnCount: number;
+  onAddColumn: () => void;
+  onAiMidi?: (stemType: StemType, columnIndex: number) => void;
+}) {
   return (
     <Box sx={{ overflowX: "auto", pb: 1 }}>
       <Stack direction="row" spacing={2} alignItems="flex-start">
@@ -38,7 +42,13 @@ export function StemGrid(props: { columnCount: number; onAddColumn: () => void }
           <Stack key={col} spacing={2} sx={{ minWidth: 220 }}>
             <Box sx={{ height: 40 }} />
             {STEM_TYPES.map((s) => (
-              <StemBox key={`${s.type}-${col}`} stemType={s.type} columnIndex={col} status={statusFor(s.type, col)} />
+              <StemBox
+                key={`${s.type}-${col}`}
+                stemType={s.type}
+                columnIndex={col}
+                status={statusFor(s.type, col)}
+                onAiMidi={props.onAiMidi}
+              />
             ))}
           </Stack>
         ))}

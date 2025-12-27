@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   AppBar,
@@ -105,11 +106,18 @@ export default function ProjectsPage() {
     <Box sx={{ minHeight: "100vh" }}>
       <AppBar position="sticky" color="transparent" elevation={0}>
         <Toolbar>
-          <Typography fontWeight={800} sx={{ flexGrow: 1 }}>
-            <Link href="/" style={{ color: "inherit", textDecoration: "none" }}>
-              Music-Land
+          <Stack direction="row" spacing={1.25} alignItems="center" sx={{ flexGrow: 1 }}>
+            <Link href="/" style={{ display: "inline-flex", alignItems: "center" }}>
+              <Image
+                src="/musick-logo.svg"
+                alt="Musick.Studio"
+                width={160}
+                height={32}
+                priority
+                style={{ height: 28, width: "auto" }}
+              />
             </Link>
-          </Typography>
+          </Stack>
           <Stack direction="row" spacing={1} alignItems="center">
             <Typography variant="body2" color="text.secondary">
               {sessionEmail ?? ""}

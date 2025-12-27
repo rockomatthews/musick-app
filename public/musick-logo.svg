@@ -1,0 +1,276 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Guides" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" viewBox="0 0 6415.67 1000">
+  <!-- Generator: Adobe Illustrator 29.5.1, SVG Export Plug-In . SVG Version: 2.1.0 Build 141)  -->
+  <defs>
+    <style>
+      .st0 {
+        fill: url(#radial-gradient9);
+        stroke: url(#Summer_Red_Radial1);
+      }
+
+      .st0, .st1, .st2, .st3, .st4, .st5, .st6, .st7, .st8, .st9, .st10, .st11, .st12, .st13, .st14, .st15, .st16, .st17, .st18, .st19, .st20, .st21, .st22, .st23, .st24, .st25, .st26, .st27, .st28 {
+        stroke-miterlimit: 10;
+      }
+
+      .st0, .st1, .st2, .st3, .st11, .st12, .st13, .st14, .st15, .st16, .st17, .st18, .st19, .st20, .st21, .st22, .st23, .st24, .st25, .st26, .st27, .st28 {
+        stroke-width: 6.58px;
+      }
+
+      .st1 {
+        fill: url(#radial-gradient23);
+        stroke: url(#radial-gradient24);
+      }
+
+      .st2 {
+        fill: url(#radial-gradient20);
+        stroke: url(#radial-gradient21);
+      }
+
+      .st3 {
+        fill: url(#radial-gradient);
+        stroke: url(#Foliage_4);
+      }
+
+      .st4 {
+        fill: url(#radial-gradient18);
+      }
+
+      .st4, .st5, .st6, .st7, .st8, .st9, .st10 {
+        stroke: #000;
+        stroke-width: 8px;
+      }
+
+      .st5 {
+        fill: url(#radial-gradient15);
+      }
+
+      .st6 {
+        fill: url(#radial-gradient17);
+      }
+
+      .st7 {
+        fill: url(#radial-gradient16);
+      }
+
+      .st8 {
+        fill: url(#radial-gradient14);
+      }
+
+      .st9 {
+        fill: url(#radial-gradient19);
+      }
+
+      .st10 {
+        fill: #333;
+      }
+
+      .st11 {
+        fill: #010101;
+        stroke: #fff;
+      }
+
+      .st12 {
+        fill: url(#radial-gradient27);
+        stroke: #ccc82b;
+      }
+
+      .st13 {
+        fill: url(#radial-gradient22);
+      }
+
+      .st13, .st14 {
+        stroke: #2b2876;
+      }
+
+      .st14 {
+        fill: url(#radial-gradient25);
+      }
+
+      .st15 {
+        fill: url(#radial-gradient12);
+        stroke: url(#Summer_Red_Radial4);
+      }
+
+      .st16 {
+        fill: url(#radial-gradient10);
+        stroke: url(#Summer_Red_Radial2);
+      }
+
+      .st17 {
+        fill: url(#radial-gradient11);
+        stroke: url(#Summer_Red_Radial3);
+      }
+
+      .st18 {
+        fill: url(#radial-gradient13);
+        stroke: url(#Summer_Red_Radial5);
+      }
+
+      .st19 {
+        fill: #262626;
+        stroke: #262626;
+      }
+
+      .st20 {
+        fill: url(#radial-gradient8);
+        stroke: url(#Summer_Red_Radial);
+      }
+
+      .st29 {
+        fill: #fff;
+        font-family: RoadRage, 'Road Rage';
+        font-size: 709.05px;
+      }
+
+      .st21 {
+        fill: url(#radial-gradient26);
+        stroke: #eadf14;
+      }
+
+      .st30 {
+        display: none;
+      }
+
+      .st22 {
+        fill: url(#radial-gradient2);
+        stroke: url(#Foliage_42);
+      }
+
+      .st23 {
+        fill: url(#radial-gradient3);
+        stroke: url(#Foliage_43);
+      }
+
+      .st24 {
+        fill: url(#radial-gradient6);
+        stroke: url(#Foliage_46);
+      }
+
+      .st25 {
+        fill: url(#radial-gradient1);
+        stroke: url(#Foliage_41);
+      }
+
+      .st26 {
+        fill: url(#radial-gradient4);
+        stroke: url(#Foliage_44);
+      }
+
+      .st27 {
+        fill: url(#radial-gradient5);
+        stroke: url(#Foliage_45);
+      }
+
+      .st28 {
+        fill: url(#radial-gradient7);
+        stroke: url(#Foliage_47);
+      }
+    </style>
+    <radialGradient id="radial-gradient" cx="841.24" cy="165.08" fx="841.24" fy="165.08" r="104.15" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#375628"/>
+      <stop offset="1" stop-color="#50b848"/>
+    </radialGradient>
+    <linearGradient id="Foliage_4" data-name="Foliage 4" x1="734.07" y1="165.08" x2="948.42" y2="165.08" gradientUnits="userSpaceOnUse">
+      <stop offset=".01" stop-color="#9dbd6a"/>
+      <stop offset=".5" stop-color="#7fae41"/>
+      <stop offset="1" stop-color="#5b822e"/>
+    </linearGradient>
+    <radialGradient id="radial-gradient1" cx="836.3" cy="170.56" fx="836.3" fy="170.56" r="98.94" gradientTransform="translate(1672.59 341.12) rotate(-180)" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#306b34"/>
+      <stop offset="1" stop-color="#6dbe45"/>
+    </radialGradient>
+    <linearGradient id="Foliage_41" data-name="Foliage 4" x1="734.07" y1="170.56" x2="938.53" y2="170.56" gradientTransform="translate(1672.59 341.12) rotate(-180)" xlink:href="#Foliage_4"/>
+    <radialGradient id="radial-gradient2" cx="613.75" fx="613.75" xlink:href="#radial-gradient"/>
+    <linearGradient id="Foliage_42" data-name="Foliage 4" x1="506.57" x2="720.92" xlink:href="#Foliage_4"/>
+    <radialGradient id="radial-gradient3" cx="608.8" fx="608.8" gradientTransform="translate(1217.6 341.12) rotate(-180)" xlink:href="#radial-gradient1"/>
+    <linearGradient id="Foliage_43" data-name="Foliage 4" x1="506.57" y1="170.56" x2="711.03" y2="170.56" gradientTransform="translate(1217.6 341.12) rotate(-180)" xlink:href="#Foliage_4"/>
+    <radialGradient id="radial-gradient4" cx="386.25" fx="386.25" xlink:href="#radial-gradient"/>
+    <linearGradient id="Foliage_44" data-name="Foliage 4" x1="279.08" x2="493.43" xlink:href="#Foliage_4"/>
+    <radialGradient id="radial-gradient5" cx="381.3" fx="381.3" gradientTransform="translate(762.61 341.12) rotate(-180)" xlink:href="#radial-gradient1"/>
+    <linearGradient id="Foliage_45" data-name="Foliage 4" x1="279.08" y1="170.56" x2="483.53" y2="170.56" gradientTransform="translate(762.61 341.12) rotate(-180)" xlink:href="#Foliage_4"/>
+    <radialGradient id="radial-gradient6" cx="158.76" fx="158.76" xlink:href="#radial-gradient"/>
+    <linearGradient id="Foliage_46" data-name="Foliage 4" x1="51.58" x2="265.93" xlink:href="#Foliage_4"/>
+    <radialGradient id="radial-gradient7" cx="153.81" fx="153.81" gradientTransform="translate(307.62 341.12) rotate(-180)" xlink:href="#radial-gradient1"/>
+    <linearGradient id="Foliage_47" data-name="Foliage 4" x1="51.58" y1="170.56" x2="256.04" y2="170.56" gradientTransform="translate(307.62 341.12) rotate(-180)" xlink:href="#Foliage_4"/>
+    <radialGradient id="radial-gradient8" cx="158.76" cy="391.58" fx="158.76" fy="391.58" r="104.15" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7f1617"/>
+      <stop offset="1" stop-color="#bd2226"/>
+    </radialGradient>
+    <radialGradient id="Summer_Red_Radial" data-name="Summer Red Radial" cx="158.76" cy="391.58" fx="158.76" fy="391.58" r="107.44" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f7977a"/>
+      <stop offset=".07" stop-color="#f68d70"/>
+      <stop offset=".5" stop-color="#f1563c"/>
+      <stop offset=".75" stop-color="#de3b33"/>
+      <stop offset="1" stop-color="#ce242c"/>
+    </radialGradient>
+    <radialGradient id="radial-gradient9" cx="153.81" cy="2291.81" fx="153.81" fy="2291.81" r="98.94" gradientTransform="translate(307.62 -1894.75) rotate(-180) scale(1 -1)" xlink:href="#radial-gradient8"/>
+    <radialGradient id="Summer_Red_Radial1" data-name="Summer Red Radial" cx="153.81" cy="397.06" fx="153.81" fy="397.06" r="102.23" gradientTransform="translate(307.62 794.13) rotate(-180)" xlink:href="#Summer_Red_Radial"/>
+    <radialGradient id="radial-gradient10" cx="386.25" fx="386.25" xlink:href="#radial-gradient8"/>
+    <radialGradient id="Summer_Red_Radial2" data-name="Summer Red Radial" cx="386.25" fx="386.25" xlink:href="#Summer_Red_Radial"/>
+    <radialGradient id="radial-gradient11" cx="381.3" cy="2291.81" fx="381.3" fy="2291.81" r="98.94" gradientTransform="translate(762.61 -1894.75) rotate(-180) scale(1 -1)" xlink:href="#radial-gradient8"/>
+    <radialGradient id="Summer_Red_Radial3" data-name="Summer Red Radial" cx="381.3" cy="397.06" fx="381.3" fy="397.06" r="102.23" gradientTransform="translate(762.61 794.13) rotate(-180)" xlink:href="#Summer_Red_Radial"/>
+    <radialGradient id="radial-gradient12" cx="613.75" fx="613.75" r="104.15" xlink:href="#radial-gradient8"/>
+    <radialGradient id="Summer_Red_Radial4" data-name="Summer Red Radial" cx="613.75" fx="613.75" xlink:href="#Summer_Red_Radial"/>
+    <radialGradient id="radial-gradient13" cx="608.8" cy="2291.81" fx="608.8" fy="2291.81" r="98.94" gradientTransform="translate(1217.6 -1894.75) rotate(-180) scale(1 -1)" xlink:href="#radial-gradient8"/>
+    <radialGradient id="Summer_Red_Radial5" data-name="Summer Red Radial" cx="608.8" cy="397.06" fx="608.8" fy="397.06" r="102.23" gradientTransform="translate(1217.6 794.13) rotate(-180)" xlink:href="#Summer_Red_Radial"/>
+    <radialGradient id="radial-gradient14" cx="836.3" cy="397.06" fx="836.3" fy="397.06" r="98.94" gradientTransform="translate(1672.59 794.13) rotate(-180)" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#231f20"/>
+      <stop offset="1" stop-color="#02383b"/>
+    </radialGradient>
+    <radialGradient id="radial-gradient15" cy="627.96" fy="627.96" gradientTransform="translate(1672.59 1255.91) rotate(-180)" xlink:href="#radial-gradient14"/>
+    <radialGradient id="radial-gradient16" cy="859.94" fy="859.94" gradientTransform="translate(1672.59 1719.88) rotate(-180)" xlink:href="#radial-gradient14"/>
+    <radialGradient id="radial-gradient17" cx="608.8" cy="627.96" fx="608.8" fy="627.96" gradientTransform="translate(1217.6 1255.91) rotate(-180)" xlink:href="#radial-gradient14"/>
+    <radialGradient id="radial-gradient18" cx="608.8" cy="859.94" fx="608.8" fy="859.94" gradientTransform="translate(1217.6 1719.88) rotate(-180)" xlink:href="#radial-gradient14"/>
+    <radialGradient id="radial-gradient19" cx="381.3" cy="859.94" fx="381.3" fy="859.94" gradientTransform="translate(762.61 1719.88) rotate(-180)" xlink:href="#radial-gradient14"/>
+    <radialGradient id="radial-gradient20" cx="158.76" cy="622.48" fx="158.76" fy="622.48" r="104.15" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2d2e89"/>
+      <stop offset="1" stop-color="#3c459c"/>
+    </radialGradient>
+    <radialGradient id="radial-gradient21" cx="158.76" cy="622.48" fx="158.76" fy="622.48" r="107.44" xlink:href="#radial-gradient20"/>
+    <radialGradient id="radial-gradient22" cx="153.81" cy="627.96" fx="153.81" fy="627.96" r="98.94" gradientTransform="translate(307.62 1255.91) rotate(-180)" xlink:href="#radial-gradient20"/>
+    <radialGradient id="radial-gradient23" cx="386.25" fx="386.25" xlink:href="#radial-gradient20"/>
+    <radialGradient id="radial-gradient24" cx="386.25" cy="622.48" fx="386.25" fy="622.48" r="107.44" xlink:href="#radial-gradient20"/>
+    <radialGradient id="radial-gradient25" cx="381.3" cy="627.96" fx="381.3" fy="627.96" r="98.94" gradientTransform="translate(762.61 1255.91) rotate(-180)" xlink:href="#radial-gradient20"/>
+    <radialGradient id="radial-gradient26" cx="158.76" cy="848.98" fx="158.76" fy="848.98" r="104.15" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fcb017"/>
+      <stop offset="1" stop-color="#ffe200"/>
+    </radialGradient>
+    <radialGradient id="radial-gradient27" cx="153.81" cy="854.46" fx="153.81" fy="854.46" r="98.94" gradientTransform="translate(307.62 1708.92) rotate(-180)" xlink:href="#radial-gradient26"/>
+  </defs>
+  <rect class="st30" y="0" width="6415.67" height="1000"/>
+  <path class="st3" d="M929.58,60.66h-166.79c-8.58,0-25.44,17.92-25.44,26.5l9.89,155.83c0,8.58,6.96,15.54,15.54,15.54l156.89,10.96c8.58,0,25.44-17.92,25.44-26.5V76.21c0-8.58-6.96-15.54-15.54-15.54Z"/>
+  <rect class="st25" x="737.36" y="71.62" width="197.87" height="197.87" rx="15.54" ry="15.54" transform="translate(1672.59 341.12) rotate(180)"/>
+  <path class="st22" d="M702.09,60.66h-166.79c-8.58,0-25.44,17.92-25.44,26.5l9.89,155.83c0,8.58,6.96,15.54,15.54,15.54l156.89,10.96c8.58,0,25.44-17.92,25.44-26.5V76.21c0-8.58-6.96-15.54-15.54-15.54Z"/>
+  <rect class="st23" x="509.86" y="71.62" width="197.87" height="197.87" rx="15.54" ry="15.54" transform="translate(1217.6 341.12) rotate(180)"/>
+  <path class="st26" d="M474.59,60.66h-166.79c-8.58,0-25.44,17.92-25.44,26.5l9.89,155.83c0,8.58,6.96,15.54,15.54,15.54l156.89,10.96c8.58,0,25.44-17.92,25.44-26.5V76.21c0-8.58-6.96-15.54-15.54-15.54Z"/>
+  <rect class="st27" x="282.37" y="71.62" width="197.87" height="197.87" rx="15.54" ry="15.54" transform="translate(762.61 341.12) rotate(180)"/>
+  <path class="st24" d="M247.1,60.66H80.31c-8.58,0-25.44,17.92-25.44,26.5l9.89,155.83c0,8.58,6.96,15.54,15.54,15.54l156.89,10.96c8.58,0,25.44-17.92,25.44-26.5V76.21c0-8.58-6.96-15.54-15.54-15.54Z"/>
+  <rect class="st28" x="54.87" y="71.62" width="197.87" height="197.87" rx="15.54" ry="15.54" transform="translate(307.62 341.12) rotate(180)"/>
+  <path class="st20" d="M247.1,287.17H80.31c-8.58,0-25.44,17.92-25.44,26.5l9.89,155.83c0,8.58,6.96,15.54,15.54,15.54l156.89,10.96c8.58,0,25.44-17.92,25.44-26.5v-166.79c0-8.58-6.96-15.54-15.54-15.54Z"/>
+  <rect class="st0" x="54.87" y="298.13" width="197.87" height="197.87" rx="15.54" ry="15.54" transform="translate(307.62 794.13) rotate(180)"/>
+  <path class="st16" d="M474.59,287.17h-166.79c-8.58,0-25.44,17.92-25.44,26.5l9.89,155.83c0,8.58,6.96,15.54,15.54,15.54l156.89,10.96c8.58,0,25.44-17.92,25.44-26.5v-166.79c0-8.58-6.96-15.54-15.54-15.54Z"/>
+  <rect class="st17" x="282.37" y="298.13" width="197.87" height="197.87" rx="15.54" ry="15.54" transform="translate(762.61 794.13) rotate(180)"/>
+  <path class="st15" d="M702.09,287.17h-166.79c-8.58,0-25.44,17.92-25.44,26.5l9.89,155.83c0,8.58,6.96,15.54,15.54,15.54l156.89,10.96c8.58,0,25.44-17.92,25.44-26.5v-166.79c0-8.58-6.96-15.54-15.54-15.54Z"/>
+  <rect class="st18" x="509.86" y="298.13" width="197.87" height="197.87" rx="15.54" ry="15.54" transform="translate(1217.6 794.13) rotate(180)"/>
+  <path class="st19" d="M929.58,287.17h-166.79c-8.58,0-25.44,17.92-25.44,26.5l9.89,155.83c0,8.58,6.96,15.54,15.54,15.54l156.89,10.96c8.58,0,25.44-17.92,25.44-26.5v-166.79c0-8.58-6.96-15.54-15.54-15.54Z"/>
+  <rect class="st8" x="737.36" y="298.13" width="197.87" height="197.87" rx="15.54" ry="15.54" transform="translate(1672.59 794.13) rotate(180)"/>
+  <path class="st19" d="M929.58,518.06h-166.79c-8.58,0-25.44,17.92-25.44,26.5l9.89,155.83c0,8.58,6.96,15.54,15.54,15.54l156.89,10.96c8.58,0,25.44-17.92,25.44-26.5v-166.79c0-8.58-6.96-15.54-15.54-15.54Z"/>
+  <rect class="st5" x="737.36" y="529.02" width="197.87" height="197.87" rx="15.54" ry="15.54" transform="translate(1672.59 1255.91) rotate(180)"/>
+  <path class="st19" d="M929.58,750.04h-166.79c-8.58,0-25.44,17.92-25.44,26.5l9.89,155.83c0,8.58,6.96,15.54,15.54,15.54l156.89,10.96c8.58,0,25.44-17.92,25.44-26.5v-166.79c0-8.58-6.96-15.54-15.54-15.54Z"/>
+  <rect class="st7" x="737.36" y="761" width="197.87" height="197.87" rx="15.54" ry="15.54" transform="translate(1672.59 1719.88) rotate(180)"/>
+  <path class="st19" d="M702.09,518.06h-166.79c-8.58,0-25.44,17.92-25.44,26.5l9.89,155.83c0,8.58,6.96,15.54,15.54,15.54l156.89,10.96c8.58,0,25.44-17.92,25.44-26.5v-166.79c0-8.58-6.96-15.54-15.54-15.54Z"/>
+  <rect class="st6" x="509.86" y="529.02" width="197.87" height="197.87" rx="15.54" ry="15.54" transform="translate(1217.6 1255.91) rotate(180)"/>
+  <path class="st19" d="M702.09,750.04h-166.79c-8.58,0-25.44,17.92-25.44,26.5l9.89,155.83c0,8.58,6.96,15.54,15.54,15.54l156.89,10.96c8.58,0,25.44-17.92,25.44-26.5v-166.79c0-8.58-6.96-15.54-15.54-15.54Z"/>
+  <rect class="st4" x="509.86" y="761" width="197.87" height="197.87" rx="15.54" ry="15.54" transform="translate(1217.6 1719.88) rotate(180)"/>
+  <path class="st19" d="M474.59,750.04h-166.79c-8.58,0-25.44,17.92-25.44,26.5l9.89,155.83c0,8.58,6.96,15.54,15.54,15.54l156.89,10.96c8.58,0,25.44-17.92,25.44-26.5v-166.79c0-8.58-6.96-15.54-15.54-15.54Z"/>
+  <rect class="st9" x="282.37" y="761" width="197.87" height="197.87" rx="15.54" ry="15.54" transform="translate(762.61 1719.88) rotate(180)"/>
+  <path class="st2" d="M247.1,518.06H80.31c-8.58,0-25.44,17.92-25.44,26.5l9.89,155.83c0,8.58,6.96,15.54,15.54,15.54l156.89,10.96c8.58,0,25.44-17.92,25.44-26.5v-166.79c0-8.58-6.96-15.54-15.54-15.54Z"/>
+  <rect class="st13" x="54.87" y="529.02" width="197.87" height="197.87" rx="15.54" ry="15.54" transform="translate(307.62 1255.91) rotate(180)"/>
+  <path class="st1" d="M474.59,518.06h-166.79c-8.58,0-25.44,17.92-25.44,26.5l9.89,155.83c0,8.58,6.96,15.54,15.54,15.54l156.89,10.96c8.58,0,25.44-17.92,25.44-26.5v-166.79c0-8.58-6.96-15.54-15.54-15.54Z"/>
+  <rect class="st14" x="282.37" y="529.02" width="197.87" height="197.87" rx="15.54" ry="15.54" transform="translate(762.61 1255.91) rotate(180)"/>
+  <path class="st11" d="M247.1,744.56H80.31c-8.58,0-25.44,17.92-25.44,26.5l9.89,155.83c0,8.58,6.96,15.54,15.54,15.54l156.89,10.96c8.58,0,25.44-17.92,25.44-26.5v-166.79c0-8.58-6.96-15.54-15.54-15.54Z"/>
+  <rect class="st10" x="54.87" y="755.52" width="197.87" height="197.87" rx="15.54" ry="15.54" transform="translate(307.62 1708.92) rotate(180)"/>
+  <path class="st21" d="M247.1,744.56H80.31c-8.58,0-25.44,17.92-25.44,26.5l9.89,155.83c0,8.58,6.96,15.54,15.54,15.54l156.89,10.96c8.58,0,25.44-17.92,25.44-26.5v-166.79c0-8.58-6.96-15.54-15.54-15.54Z"/>
+  <rect class="st12" x="54.87" y="755.52" width="197.87" height="197.87" rx="15.54" ry="15.54" transform="translate(307.62 1708.92) rotate(180)"/>
+  <text class="st29" transform="translate(1082.94 715.6)"><tspan x="0" y="0">Musick.Studio</tspan></text>
+</svg>

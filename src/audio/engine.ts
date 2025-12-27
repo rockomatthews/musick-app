@@ -14,6 +14,7 @@ export class AudioEngine {
   private _inputDeviceId: string | null = null;
 
   private input: Tone.UserMedia | null = null;
+  // FX bus input; everything (live input, MIDI synths, stem playback) can connect here.
   private gain = new Tone.Gain(1);
   private eq = new Tone.EQ3(0, 0, 0);
   private compressor = new Tone.Compressor(-18, 3);
@@ -38,6 +39,10 @@ export class AudioEngine {
 
     // FX chain routes into the main output
     this.gain.chain(this.eq, this.compressor, this.delay, this.reverb, this.meter, Tone.getDestination());
+  }
+
+  getFxInput() {
+    return this.gain;
   }
 
   async listInputDevices(): Promise<MediaDeviceInfo[]> {

@@ -14,8 +14,13 @@ export class MidiManager {
   private _inputId: string | null = null;
   private _lastNote: { note: string; velocity: number } | null = null;
 
-  private synth = new Tone.PolySynth(Tone.Synth).toDestination();
+  private synth = new Tone.PolySynth(Tone.Synth);
+  private output: Tone.ToneAudioNode = Tone.getDestination();
   private inputListenerCleanup: (() => void) | null = null;
+
+  constructor() {
+    this.synth.connect(this.output);
+  }
 
   get state(): MidiState {
     return {
@@ -29,6 +34,16 @@ export class MidiManager {
     if (this._enabled) return;
     await WebMidi.enable();
     this._enabled = true;
+  }
+
+  setOutput(output: Tone.ToneAudioNode) {
+    try {
+      this.synth.disconnect();
+    } catch {
+      // ignore
+    }
+    this.output = output;
+    this.synth.connect(this.output);
   }
 
   listInputs() {

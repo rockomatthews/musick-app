@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Box, Button, Container, Paper, Stack, Typography } from "@mui/material";
 import GoogleIcon from "@mui/icons-material/Google";
@@ -47,6 +48,14 @@ export default function LoginPage() {
       <Container maxWidth="sm">
         <Paper sx={{ p: 4 }}>
           <Stack spacing={2}>
+            <Image
+              src="/musick-logo.svg"
+              alt="Musick.Studio"
+              width={220}
+              height={44}
+              priority
+              style={{ height: 36, width: "auto" }}
+            />
             <Typography variant="h4" fontWeight={800}>
               Login
             </Typography>
