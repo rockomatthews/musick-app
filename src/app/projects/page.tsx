@@ -20,9 +20,9 @@ import {
   Toolbar,
   Typography,
 } from "@mui/material";
-import LogoutIcon from "@mui/icons-material/Logout";
 import AddIcon from "@mui/icons-material/Add";
 import { createSupabaseBrowserClient, getSupabasePublicConfig } from "@/lib/supabase/client";
+import { ProfileMenu } from "@/components/ProfileMenu";
 
 type ProjectRow = {
   id: string;
@@ -122,9 +122,7 @@ export default function ProjectsPage() {
             <Typography variant="body2" color="text.secondary">
               {sessionEmail ?? ""}
             </Typography>
-            <IconButton onClick={signOut} aria-label="Sign out">
-              <LogoutIcon />
-            </IconButton>
+            <ProfileMenu />
           </Stack>
         </Toolbar>
       </AppBar>

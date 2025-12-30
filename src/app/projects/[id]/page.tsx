@@ -38,6 +38,7 @@ import * as Tone from "tone";
 import { getMasterRecorder } from "@/audio/recorder";
 import { MagentaMidiProvider, playAiMidi } from "@/ai/magenta/midi";
 import type { StemType } from "@/lib/stems/types";
+import { ProfileMenu } from "@/components/ProfileMenu";
 
 export default function ProjectPage() {
   const params = useParams<{ id: string }>();
@@ -80,6 +81,7 @@ export default function ProjectPage() {
   const [pendingStems, setPendingStems] = React.useState<
     { id: string; stem_type: string; column_index: number; created_at: string; created_by: string }[]
   >([]);
+  const [coverUrl, setCoverUrl] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     (async () => {
@@ -92,7 +94,7 @@ export default function ProjectPage() {
 
       const { data } = await supabase
         .from("projects")
-        .select("title,column_count,owner_user_id")
+        .select("title,column_count,owner_user_id,cover_image_path")
         .eq("id", projectId)
         .single();
       setTitle(data?.title ?? "Project");
@@ -100,6 +102,14 @@ export default function ProjectPage() {
         setColumnCount(data.column_count);
       }
       setIsOwner(Boolean(data?.owner_user_id && data.owner_user_id === sessionData.session.user.id));
+      if (data?.cover_image_path) {
+        const p = String(data.cover_image_path);
+        const url =
+          p.startsWith("http://") || p.startsWith("https://")
+            ? p
+            : supabase.storage.from("project-images").getPublicUrl(p).data.publicUrl ?? null;
+        setCoverUrl(url);
+      }
 
       const { data: stems } = await supabase
         .from("stems")
@@ -251,11 +261,69 @@ export default function ProjectPage() {
               {title}
             </Typography>
           </Stack>
+          <ProfileMenu />
         </Toolbar>
       </AppBar>
 
       <Container maxWidth={false} sx={{ py: 3 }}>
         <Stack spacing={2}>
+          {isOwner ? (
+            <Paper variant="outlined" sx={{ p: 2 }}>
+              <Typography fontWeight={900}>Project cover image</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                This image shows up on the homepage carousels.
+              </Typography>
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ mt: 2 }} alignItems={{ sm: "center" }}>
+                {coverUrl ? (
+                  <Box
+                    component="img"
+                    src={coverUrl}
+                    alt="Project cover"
+                    sx={{ width: 220, height: 124, objectFit: "cover", borderRadius: 2, border: "1px solid rgba(255,255,255,0.12)" }}
+                  />
+                ) : (
+                  <Box sx={{ width: 220, height: 124, borderRadius: 2, bgcolor: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)" }} />
+                )}
+                <Button variant="outlined" component="label">
+                  Upload cover image
+                  <input
+                    hidden
+                    type="file"
+                    accept="image/jpeg,image/png"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = "";
+                      if (!file) return;
+                      try {
+                        const allowed = new Set(["image/jpeg", "image/png"]);
+                        if (!allowed.has(file.type)) {
+                          throw new Error("Cover image must be a JPG or PNG.");
+                        }
+                        const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+                        const path = `projects/${projectId}/covers/${Date.now()}.${ext}`;
+                        const { error: upErr } = await supabase.storage.from("project-images").upload(path, file, {
+                          contentType: file.type || "application/octet-stream",
+                          upsert: true,
+                        });
+                        if (upErr) throw upErr;
+                        const { error: dbErr } = await supabase.from("projects").update({ cover_image_path: path }).eq("id", projectId);
+                        if (dbErr) throw dbErr;
+                        const url = supabase.storage.from("project-images").getPublicUrl(path).data.publicUrl ?? null;
+                        setCoverUrl(url);
+                        alert("Cover image updated!");
+                      } catch (err) {
+                        alert(err instanceof Error ? err.message : "Cover upload failed");
+                      }
+                    }}
+                  />
+                </Button>
+              </Stack>
+              <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>
+                Requires a Supabase Storage bucket named <code>project-images</code>.
+              </Typography>
+            </Paper>
+          ) : null}
+
           <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
             <Box sx={{ flex: 1 }}>
               <Typography fontWeight={900} sx={{ mb: 1 }}>
