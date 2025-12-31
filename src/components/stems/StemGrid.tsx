@@ -16,6 +16,10 @@ export function StemGrid(props: {
   canPlayFor?: (stemType: StemType, columnIndex: number) => boolean;
   isPlayingFor?: (stemType: StemType, columnIndex: number) => boolean;
   onPlayToggle?: (stemType: StemType, columnIndex: number) => void;
+  submissionsFor?: (stemType: StemType, columnIndex: number) => { userId: string; label: string; avatarUrl: string | null; stemId: string; locked: boolean }[];
+  isOwner?: boolean;
+  onLockStem?: (stemId: string) => void;
+  onPlayStem?: (stemId: string) => void;
 }) {
   const statusFor = props.statusFor ?? (() => "empty" as StemBoxStatus);
   return (
@@ -55,6 +59,10 @@ export function StemGrid(props: {
                 canPlay={props.canPlayFor?.(s.type, col) ?? false}
                 isPlaying={props.isPlayingFor?.(s.type, col) ?? false}
                 onPlayToggle={props.onPlayToggle}
+                submissions={props.submissionsFor?.(s.type, col) ?? []}
+                isOwner={props.isOwner}
+                onLockStem={props.onLockStem}
+                onPlayStem={props.onPlayStem}
               />
             ))}
           </Stack>

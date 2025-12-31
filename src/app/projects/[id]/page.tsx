@@ -53,6 +53,8 @@ export default function ProjectPage() {
   const [isOwner, setIsOwner] = React.useState(false);
   const [title, setTitle] = React.useState<string>("Project");
   const [columnCount, setColumnCount] = React.useState(1);
+  const [bpm, setBpm] = React.useState(120);
+  const [columnDurations, setColumnDurations] = React.useState<Map<number, number>>(new Map()); // seconds
   const [audioEnabled, setAudioEnabled] = React.useState(false);
   const [monitoring, setMonitoring] = React.useState(false);
   const [audioInputs, setAudioInputs] = React.useState<MediaDeviceInfo[]>([]);
@@ -92,16 +94,98 @@ export default function ProjectPage() {
   const [cellLatestAudioUrl, setCellLatestAudioUrl] = React.useState<Map<string, string>>(new Map());
   const [cellLatestStemId, setCellLatestStemId] = React.useState<Map<string, string>>(new Map());
   const [playingCellKey, setPlayingCellKey] = React.useState<string | null>(null);
+  const [cellSubmissions, setCellSubmissions] = React.useState<
+    Map<string, { userId: string; stemId: string; audioUrl: string | null; locked: boolean }[]>
+  >(new Map());
+  const [profileMap, setProfileMap] = React.useState<Map<string, { label: string; avatarUrl: string | null }>>(
+    new Map(),
+  );
 
   const [stemRecTarget, setStemRecTarget] = React.useState<{ stemType: StemType; columnIndex: number } | null>(null);
   const [stemRecPhase, setStemRecPhase] = React.useState<"idle" | "countin" | "recording">("idle");
   const countInTimerRef = React.useRef<number | null>(null);
   const cellPlayerRef = React.useRef<Tone.Player | null>(null);
+  const stemAutoStopRef = React.useRef<number | null>(null);
+  const stemRecTargetRef = React.useRef<{ stemType: StemType; columnIndex: number } | null>(null);
+  const stemRecPhaseRef = React.useRef<"idle" | "countin" | "recording">("idle");
+
+  React.useEffect(() => {
+    stemRecTargetRef.current = stemRecTarget;
+  }, [stemRecTarget]);
+  React.useEffect(() => {
+    stemRecPhaseRef.current = stemRecPhase;
+  }, [stemRecPhase]);
+
+  const stopAndSubmitStemRecording = React.useCallback(
+    async (stemType: StemType, columnIndex: number) => {
+      // Ensure we’re still recording this exact target
+      if (stemRecPhaseRef.current !== "recording") return;
+      const t = stemRecTargetRef.current;
+      if (!t || t.stemType !== stemType || t.columnIndex !== columnIndex) return;
+
+      if (stemAutoStopRef.current) window.clearTimeout(stemAutoStopRef.current);
+      stemAutoStopRef.current = null;
+
+      try {
+        const rec = getMasterRecorder();
+        const res = await rec.stop();
+        setStemRecPhase("idle");
+        setStemRecTarget(null);
+
+        // Create stem row (pending), upload audio, create asset
+        const { data: stem, error: stemErr } = await supabase
+          .from("stems")
+          .insert({
+            project_id: projectId,
+            stem_type: stemType,
+            column_index: columnIndex,
+            status: "pending",
+            created_by: userId,
+          })
+          .select("id")
+          .single();
+        if (stemErr) throw stemErr;
+
+        const storagePath = `projects/${projectId}/stems/${stemType}/col-${columnIndex + 1}/${Date.now()}-recorded.webm`;
+        try {
+          const { error: upErr } = await supabase.storage.from("stems").upload(storagePath, res.blob, {
+            contentType: res.blob.type || "audio/webm",
+            upsert: false,
+          });
+          if (upErr) throw upErr;
+
+          const { error: assetErr } = await supabase.from("stem_assets").insert({
+            stem_id: stem.id,
+            kind: "audio",
+            storage_path: storagePath,
+            metadata_json: {
+              source: "record",
+              countIn: 3,
+              bpm,
+              durationSec: columnDurations.get(columnIndex) ?? 8,
+            },
+          });
+          if (assetErr) throw assetErr;
+        } catch (e) {
+          // Roll back the stem row if upload/asset insert fails.
+          await supabase.from("stems").delete().eq("id", stem.id);
+          throw e;
+        }
+
+        alert("Recorded + submitted!");
+        await refreshStems();
+      } catch (err) {
+        alert(err instanceof Error ? err.message : "Recording submit failed");
+        await refreshStems();
+      }
+    },
+    [bpm, columnDurations, projectId, refreshStems, supabase, userId],
+  );
 
   const refreshStems = React.useCallback(async () => {
     const { data: stems } = await supabase
       .from("stems")
-      .select("id,stem_type,column_index,status,created_at,created_by,stem_assets(kind,storage_path)")
+      .select("id,stem_type,column_index,status,created_at,created_by,locked,stem_assets(kind,storage_path)")
       .eq("project_id", projectId)
       .order("created_at", { ascending: false });
 
@@ -111,11 +195,14 @@ export default function ProjectPage() {
     const latestStemIdMap = new Map<string, string>();
     const pending: { id: string; stem_type: string; column_index: number; created_at: string; created_by: string }[] = [];
     const approvedAudioNext: { stemId: string; stemType: string; columnIndex: number; url: string }[] = [];
+    const submissionsMap = new Map<string, { userId: string; stemId: string; audioUrl: string | null; locked: boolean }[]>();
+    const userIds = new Set<string>();
 
     // Iterate newest→oldest (we requested created_at desc), so first audio we see per cell becomes "latest"
     for (const s of (stems as any[]) ?? []) {
       const k = `${s.stem_type}:${s.column_index}`;
       const st: "pending" | "approved" | "rejected" = s.status;
+      const locked = Boolean(s.locked);
 
       // Choose best visible status per cell: approved > pending > empty
       const cur = statusMap.get(k);
@@ -127,6 +214,7 @@ export default function ProjectPage() {
       }
 
       const assets = (s.stem_assets as any[]) ?? [];
+      let audioUrl: string | null = null;
       for (const a of assets) {
         if (a.kind !== "audio") continue;
         const p = String(a.storage_path ?? "");
@@ -136,6 +224,7 @@ export default function ProjectPage() {
             ? p
             : supabase.storage.from("stems").getPublicUrl(p).data.publicUrl ?? null;
         if (!url) continue;
+        audioUrl = audioUrl ?? url;
 
         // For the global list, show approved and pending separately? For now: include both so "anyone can listen"
         approvedAudioNext.push({ stemId: s.id, stemType: s.stem_type, columnIndex: s.column_index, url });
@@ -146,6 +235,13 @@ export default function ProjectPage() {
           latestStemIdMap.set(k, s.id);
         }
       }
+
+      // Track submissions (for icon row)
+      const uid = String(s.created_by ?? "");
+      if (uid) userIds.add(uid);
+      const list = submissionsMap.get(k) ?? [];
+      list.push({ userId: uid, stemId: s.id, audioUrl, locked });
+      submissionsMap.set(k, list);
 
       if (st === "pending") {
         pending.push({
@@ -164,6 +260,28 @@ export default function ProjectPage() {
     setCellLatestStemId(latestStemIdMap);
     setPendingStems(pending);
     setApprovedAudio(approvedAudioNext);
+    setCellSubmissions(submissionsMap);
+
+    // Fetch profile labels/avatars for contributor icons
+    if (userIds.size > 0) {
+      const { data: profs } = await supabase
+        .from("profiles")
+        .select("user_id,username,display_name,avatar_path")
+        .in("user_id", Array.from(userIds));
+      const map = new Map<string, { label: string; avatarUrl: string | null }>();
+      for (const p of (profs as any[]) ?? []) {
+        const label = String(p.username || p.display_name || p.user_id);
+        const avatarPath = p.avatar_path ? String(p.avatar_path) : null;
+        const avatarUrl =
+          avatarPath && (avatarPath.startsWith("http://") || avatarPath.startsWith("https://"))
+            ? avatarPath
+            : avatarPath
+              ? supabase.storage.from("avatars").getPublicUrl(avatarPath).data.publicUrl ?? null
+              : null;
+        map.set(String(p.user_id), { label, avatarUrl });
+      }
+      setProfileMap(map);
+    }
   }, [projectId, supabase]);
 
   React.useEffect(() => {
@@ -177,13 +295,14 @@ export default function ProjectPage() {
 
       const { data } = await supabase
         .from("projects")
-        .select("title,column_count,owner_user_id,cover_image_path")
+        .select("title,column_count,owner_user_id,cover_image_path,bpm")
         .eq("id", projectId)
         .single();
       setTitle(data?.title ?? "Project");
       if (typeof data?.column_count === "number" && data.column_count > 0) {
         setColumnCount(data.column_count);
       }
+      if (typeof data?.bpm === "number" && data.bpm > 0) setBpm(data.bpm);
       setIsOwner(Boolean(data?.owner_user_id && data.owner_user_id === sessionData.session.user.id));
       if (data?.cover_image_path) {
         const p = String(data.cover_image_path);
@@ -194,6 +313,17 @@ export default function ProjectPage() {
         setCoverUrl(url);
       }
       await refreshStems();
+
+      // Load per-column durations
+      const { data: cols } = await supabase
+        .from("project_columns")
+        .select("column_index,duration_sec")
+        .eq("project_id", projectId);
+      const map = new Map<number, number>();
+      for (const c of (cols as any[]) ?? []) {
+        map.set(Number(c.column_index), Number(c.duration_sec));
+      }
+      setColumnDurations(map);
     })();
   }, [projectId, refreshStems, router, supabase]);
 
@@ -201,6 +331,34 @@ export default function ProjectPage() {
     const next = columnCount + 1;
     setColumnCount(next);
     await supabase.from("projects").update({ column_count: next }).eq("id", projectId);
+
+    // Ensure duration row exists for the new column
+    await supabase.from("project_columns").upsert(
+      { project_id: projectId, column_index: next - 1, duration_sec: 8 },
+      { onConflict: "project_id,column_index" },
+    );
+    setColumnDurations((prev) => {
+      const m = new Map(prev);
+      if (!m.has(next - 1)) m.set(next - 1, 8);
+      return m;
+    });
+  }
+
+  async function saveBpm(nextBpm: number) {
+    setBpm(nextBpm);
+    await supabase.from("projects").update({ bpm: nextBpm }).eq("id", projectId);
+  }
+
+  async function saveColumnDuration(columnIndex: number, seconds: number) {
+    setColumnDurations((prev) => {
+      const m = new Map(prev);
+      m.set(columnIndex, seconds);
+      return m;
+    });
+    await supabase.from("project_columns").upsert(
+      { project_id: projectId, column_index: columnIndex, duration_sec: seconds },
+      { onConflict: "project_id,column_index" },
+    );
   }
 
   async function enableAudio() {
@@ -319,6 +477,61 @@ export default function ProjectPage() {
 
       <Container maxWidth={false} sx={{ py: 3 }}>
         <Stack spacing={2}>
+          {isOwner ? (
+            <Paper variant="outlined" sx={{ p: 2 }}>
+              <Typography fontWeight={900}>Project timing</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                BPM controls the click/count-in. Column duration auto-stops stem recordings.
+              </Typography>
+              <Stack direction={{ xs: "column", md: "row" }} spacing={3} sx={{ mt: 2 }}>
+                <Box sx={{ minWidth: 260 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    BPM: {bpm}
+                  </Typography>
+                  <Slider
+                    min={60}
+                    max={200}
+                    step={1}
+                    value={bpm}
+                    onChange={(_, v) => setBpm(Number(v))}
+                    onChangeCommitted={(_, v) => void saveBpm(Number(v))}
+                  />
+                </Box>
+                <Box sx={{ flex: 1 }}>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                    Duration per column (seconds)
+                  </Typography>
+                  <Stack direction="row" spacing={2} sx={{ overflowX: "auto", pb: 1 }}>
+                    {Array.from({ length: columnCount }).map((_, i) => (
+                      <Box key={i} sx={{ minWidth: 180 }}>
+                        <Typography fontWeight={800} variant="body2">
+                          Column {i + 1}
+                        </Typography>
+                        <Slider
+                          min={2}
+                          max={60}
+                          step={1}
+                          value={columnDurations.get(i) ?? 8}
+                          onChange={(_, v) => {
+                            const sec = Number(v);
+                            setColumnDurations((prev) => {
+                              const m = new Map(prev);
+                              m.set(i, sec);
+                              return m;
+                            });
+                          }}
+                          onChangeCommitted={(_, v) => void saveColumnDuration(i, Number(v))}
+                        />
+                        <Typography variant="caption" color="text.secondary">
+                          {columnDurations.get(i) ?? 8}s
+                        </Typography>
+                      </Box>
+                    ))}
+                  </Stack>
+                </Box>
+              </Stack>
+            </Paper>
+          ) : null}
           {isOwner ? (
             <Paper variant="outlined" sx={{ p: 2 }}>
               <Typography fontWeight={900}>Project cover image</Typography>
@@ -595,9 +808,59 @@ export default function ProjectPage() {
             }
             canPlayFor={(stemType, columnIndex) => cellLatestAudioUrl.has(`${stemType}:${columnIndex}`)}
             isPlayingFor={(stemType, columnIndex) => playingCellKey === `${stemType}:${columnIndex}`}
+            submissionsFor={(stemType, columnIndex) => {
+              const k = `${stemType}:${columnIndex}`;
+              const subs = cellSubmissions.get(k) ?? [];
+              // Show newest first, but make locked bubble stand out (keep its locked flag)
+              return subs
+                .filter((s) => Boolean(s.audioUrl))
+                .slice(0, 12)
+                .map((s) => {
+                  const p = profileMap.get(s.userId);
+                  return {
+                    userId: s.userId,
+                    stemId: s.stemId,
+                    avatarUrl: p?.avatarUrl ?? null,
+                    label: p?.label ?? s.userId.slice(0, 6),
+                    locked: s.locked,
+                  };
+                });
+            }}
+            isOwner={isOwner}
+            onPlayStem={async (stemId) => {
+              const found = Array.from(cellSubmissions.values())
+                .flat()
+                .find((s) => s.stemId === stemId);
+              const url = found?.audioUrl;
+              if (!url) return;
+              await playApprovedStem(stemId, url);
+            }}
+            onLockStem={async (stemId) => {
+              if (!isOwner) return;
+              // Lock exactly this stem in its cell (unique index enforces 1 per cell)
+              const { data: row } = await supabase
+                .from("stems")
+                .select("id,project_id,stem_type,column_index")
+                .eq("id", stemId)
+                .maybeSingle();
+              const r = row as any;
+              if (!r) return;
+              // Unlock others in same cell, then lock this one
+              await supabase
+                .from("stems")
+                .update({ locked: false })
+                .eq("project_id", r.project_id)
+                .eq("stem_type", r.stem_type)
+                .eq("column_index", r.column_index);
+              const { error } = await supabase.from("stems").update({ locked: true }).eq("id", stemId);
+              if (error) alert(error.message);
+              await refreshStems();
+            }}
             onPlayToggle={async (stemType, columnIndex) => {
               const k = `${stemType}:${columnIndex}`;
-              const url = cellLatestAudioUrl.get(k);
+              // Default play should use locked if available; otherwise use latest.
+              const locked = (cellSubmissions.get(k) ?? []).find((s) => s.locked && s.audioUrl)?.audioUrl ?? null;
+              const url = locked ?? cellLatestAudioUrl.get(k);
               if (!url) return;
 
               const engine = getAudioEngine();
@@ -652,55 +915,8 @@ export default function ProjectPage() {
                   return;
                 }
                 if (stemRecPhase === "recording") {
-                  try {
-                    const rec = getMasterRecorder();
-                    const res = await rec.stop();
-                    setStemRecPhase("idle");
-                    setStemRecTarget(null);
-
-                    // Create stem row (pending), upload audio, create asset
-                    const { data: stem, error: stemErr } = await supabase
-                      .from("stems")
-                      .insert({
-                        project_id: projectId,
-                        stem_type: stemType,
-                        column_index: columnIndex,
-                        status: "pending",
-                        created_by: userId,
-                      })
-                      .select("id")
-                      .single();
-                    if (stemErr) throw stemErr;
-
-                    const storagePath = `projects/${projectId}/stems/${stemType}/col-${columnIndex + 1}/${Date.now()}-recorded.webm`;
-                    try {
-                      const { error: upErr } = await supabase.storage.from("stems").upload(storagePath, res.blob, {
-                        contentType: res.blob.type || "audio/webm",
-                        upsert: false,
-                      });
-                      if (upErr) throw upErr;
-
-                      const { error: assetErr } = await supabase.from("stem_assets").insert({
-                        stem_id: stem.id,
-                        kind: "audio",
-                        storage_path: storagePath,
-                        metadata_json: { source: "record", countIn: 3, bpm: 120 },
-                      });
-                      if (assetErr) throw assetErr;
-                    } catch (e) {
-                      // Roll back the stem row if upload/asset insert fails.
-                      await supabase.from("stems").delete().eq("id", stem.id);
-                      throw e;
-                    }
-
-                    alert("Recorded + submitted as pending stem!");
-                    await refreshStems();
-                    return;
-                  } catch (err) {
-                    alert(err instanceof Error ? err.message : "Recording submit failed");
-                    await refreshStems();
-                    return;
-                  }
+                  await stopAndSubmitStemRecording(stemType, columnIndex);
+                  return;
                 }
               }
 
@@ -717,11 +933,11 @@ export default function ProjectPage() {
               setStemRecTarget({ stemType, columnIndex });
               setStemRecPhase("countin");
 
-              // 3-click count-in at 120 BPM (quarter note = 500ms)
+              // 3-click count-in at project BPM
               try {
                 const synth = new Tone.MembraneSynth({ volume: -6 }).toDestination();
                 const now = Tone.now() + 0.05;
-                const beatSec = 0.5;
+                const beatSec = 60 / Math.max(1, bpm);
                 for (let i = 0; i < 3; i += 1) {
                   synth.triggerAttackRelease(i === 0 ? "C5" : "C4", "16n", now + i * beatSec, 0.9);
                 }
@@ -731,6 +947,12 @@ export default function ProjectPage() {
                     const rec = getMasterRecorder();
                     await rec.start();
                     setStemRecPhase("recording");
+
+                    // Auto-stop at per-column duration
+                    const durationSec = columnDurations.get(columnIndex) ?? 8;
+                    stemAutoStopRef.current = window.setTimeout(() => {
+                      void stopAndSubmitStemRecording(stemType, columnIndex);
+                    }, durationSec * 1000);
                   } catch (e) {
                     setStemRecTarget(null);
                     setStemRecPhase("idle");
@@ -745,6 +967,11 @@ export default function ProjectPage() {
                     const rec = getMasterRecorder();
                     await rec.start();
                     setStemRecPhase("recording");
+
+                    const durationSec = columnDurations.get(columnIndex) ?? 8;
+                    stemAutoStopRef.current = window.setTimeout(() => {
+                      void stopAndSubmitStemRecording(stemType, columnIndex);
+                    }, durationSec * 1000);
                   } catch (e) {
                     setStemRecTarget(null);
                     setStemRecPhase("idle");
@@ -758,9 +985,9 @@ export default function ProjectPage() {
           <Divider />
 
           <Paper variant="outlined" sx={{ p: 2 }}>
-            <Typography fontWeight={900}>Submit a stem (pending approval)</Typography>
+            <Typography fontWeight={900}>Submit a stem</Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-              Upload an audio file as a proposed stem. The project owner approves/rejects it.
+              Upload an audio file as a new version for this stem box. The owner can lock a favorite version as default.
             </Typography>
 
             <Stack direction={{ xs: "column", md: "row" }} spacing={2} sx={{ mt: 2 }} alignItems={{ md: "center" }}>
@@ -850,15 +1077,8 @@ export default function ProjectPage() {
                       });
                       if (assetErr) throw assetErr;
 
-                      alert("Submitted! Waiting for owner approval.");
-
-                      const { data: pending } = await supabase
-                        .from("stems")
-                        .select("id,stem_type,column_index,created_at,created_by")
-                        .eq("project_id", projectId)
-                        .eq("status", "pending")
-                        .order("created_at", { ascending: false });
-                      setPendingStems((pending as any[]) ?? []);
+                      alert("Submitted!");
+                      await refreshStems();
                     } catch (err) {
                       alert(err instanceof Error ? err.message : "Submit failed");
                     } finally {
@@ -874,143 +1094,8 @@ export default function ProjectPage() {
             </Typography>
           </Paper>
 
-          {isOwner ? (
-            <Paper variant="outlined" sx={{ p: 2 }}>
-              <Typography fontWeight={900}>Owner review (pending stems)</Typography>
-              {pendingStems.length === 0 ? (
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                  No pending stems.
-                </Typography>
-              ) : (
-                <List>
-                  {pendingStems.map((s) => (
-                    <ListItem
-                      key={s.id}
-                      secondaryAction={
-                        <Stack direction="row" spacing={1}>
-                          <Button
-                            size="small"
-                            variant="contained"
-                            onClick={async () => {
-                              const { error } = await supabase
-                                .from("stems")
-                                .update({ status: "approved", approved_by: userId })
-                                .eq("id", s.id);
-                              if (error) alert(error.message);
-                              const { data: pending } = await supabase
-                                .from("stems")
-                                .select("id,stem_type,column_index,created_at,created_by")
-                                .eq("project_id", projectId)
-                                .eq("status", "pending")
-                                .order("created_at", { ascending: false });
-                              setPendingStems((pending as any[]) ?? []);
-                            }}
-                          >
-                            Approve
-                          </Button>
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            color="error"
-                            onClick={async () => {
-                              const { error } = await supabase
-                                .from("stems")
-                                .update({ status: "rejected", approved_by: userId })
-                                .eq("id", s.id);
-                              if (error) alert(error.message);
-                              const { data: pending } = await supabase
-                                .from("stems")
-                                .select("id,stem_type,column_index,created_at,created_by")
-                                .eq("project_id", projectId)
-                                .eq("status", "pending")
-                                .order("created_at", { ascending: false });
-                              setPendingStems((pending as any[]) ?? []);
-                            }}
-                          >
-                            Reject
-                          </Button>
-                        </Stack>
-                      }
-                    >
-                      <ListItemText
-                        primary={`${s.stem_type} • Col ${s.column_index + 1}`}
-                        secondary={`Submitted ${new Date(s.created_at).toLocaleString()} by ${s.created_by}`}
-                      />
-                    </ListItem>
-                  ))}
-                </List>
-              )}
-            </Paper>
-          ) : null}
-
-          <Paper variant="outlined" sx={{ p: 2 }}>
-            <Stack direction="row" alignItems="center" justifyContent="space-between">
-              <Typography fontWeight={900}>Approved stems</Typography>
-              <Button
-                size="small"
-                variant="outlined"
-                onClick={async () => {
-                  // quick refresh
-                  const { data: stems } = await supabase
-                    .from("stems")
-                    .select("id,stem_type,column_index,status,stem_assets(kind,storage_path)")
-                    .eq("project_id", projectId)
-                    .eq("status", "approved");
-                  const audio: { stemId: string; stemType: string; columnIndex: number; url: string }[] = [];
-                  for (const s of (stems as any[]) ?? []) {
-                    const assets = (s.stem_assets as any[]) ?? [];
-                    for (const a of assets) {
-                      if (a.kind !== "audio") continue;
-                      const p = String(a.storage_path ?? "");
-                      if (!p) continue;
-                      if (p.startsWith("http://") || p.startsWith("https://")) {
-                        audio.push({ stemId: s.id, stemType: s.stem_type, columnIndex: s.column_index, url: p });
-                      } else {
-                        const { data } = supabase.storage.from("stems").getPublicUrl(p);
-                        if (data.publicUrl) audio.push({ stemId: s.id, stemType: s.stem_type, columnIndex: s.column_index, url: data.publicUrl });
-                      }
-                    }
-                  }
-                  setApprovedAudio(audio);
-                }}
-              >
-                Refresh
-              </Button>
-            </Stack>
-
-            {approvedAudio.length === 0 ? (
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                No approved audio stems yet.
-              </Typography>
-            ) : (
-              <List>
-                {approvedAudio.map((s) => (
-                  <ListItem key={`${s.stemId}-${s.url}`} disablePadding secondaryAction={
-                    playingStemId === s.stemId ? (
-                      <IconButton onClick={stopApprovedStem} aria-label="Stop">
-                        <StopIcon />
-                      </IconButton>
-                    ) : (
-                      <IconButton onClick={() => void playApprovedStem(s.stemId, s.url)} aria-label="Play">
-                        <PlayArrowIcon />
-                      </IconButton>
-                    )
-                  }>
-                    <ListItemButton onClick={() => (playingStemId === s.stemId ? stopApprovedStem() : void playApprovedStem(s.stemId, s.url))}>
-                      <ListItemText primary={`${s.stemType} • Col ${s.columnIndex + 1}`} secondary={s.url} />
-                    </ListItemButton>
-                  </ListItem>
-                ))}
-              </List>
-            )}
-
-            <Typography variant="caption" color="text.secondary">
-              Playback currently expects audio assets to be either a full URL, or a path in a Supabase Storage bucket named <code>stems</code>.
-            </Typography>
-          </Paper>
-
           <Typography color="text.secondary" variant="body2">
-            Next: recording (master mix), then submit/approve flow + uploading stems into Storage.
+            Tip: click an avatar in a stem box to play that user’s submission. The owner can lock a favorite as the default play.
           </Typography>
         </Stack>
       </Container>
