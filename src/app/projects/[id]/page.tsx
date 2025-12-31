@@ -116,72 +116,6 @@ export default function ProjectPage() {
     stemRecPhaseRef.current = stemRecPhase;
   }, [stemRecPhase]);
 
-  const stopAndSubmitStemRecording = React.useCallback(
-    async (stemType: StemType, columnIndex: number) => {
-      // Ensure we’re still recording this exact target
-      if (stemRecPhaseRef.current !== "recording") return;
-      const t = stemRecTargetRef.current;
-      if (!t || t.stemType !== stemType || t.columnIndex !== columnIndex) return;
-
-      if (stemAutoStopRef.current) window.clearTimeout(stemAutoStopRef.current);
-      stemAutoStopRef.current = null;
-
-      try {
-        const rec = getMasterRecorder();
-        const res = await rec.stop();
-        setStemRecPhase("idle");
-        setStemRecTarget(null);
-
-        // Create stem row (pending), upload audio, create asset
-        const { data: stem, error: stemErr } = await supabase
-          .from("stems")
-          .insert({
-            project_id: projectId,
-            stem_type: stemType,
-            column_index: columnIndex,
-            status: "pending",
-            created_by: userId,
-          })
-          .select("id")
-          .single();
-        if (stemErr) throw stemErr;
-
-        const storagePath = `projects/${projectId}/stems/${stemType}/col-${columnIndex + 1}/${Date.now()}-recorded.webm`;
-        try {
-          const { error: upErr } = await supabase.storage.from("stems").upload(storagePath, res.blob, {
-            contentType: res.blob.type || "audio/webm",
-            upsert: false,
-          });
-          if (upErr) throw upErr;
-
-          const { error: assetErr } = await supabase.from("stem_assets").insert({
-            stem_id: stem.id,
-            kind: "audio",
-            storage_path: storagePath,
-            metadata_json: {
-              source: "record",
-              countIn: 3,
-              bpm,
-              durationSec: columnDurations.get(columnIndex) ?? 8,
-            },
-          });
-          if (assetErr) throw assetErr;
-        } catch (e) {
-          // Roll back the stem row if upload/asset insert fails.
-          await supabase.from("stems").delete().eq("id", stem.id);
-          throw e;
-        }
-
-        alert("Recorded + submitted!");
-        await refreshStems();
-      } catch (err) {
-        alert(err instanceof Error ? err.message : "Recording submit failed");
-        await refreshStems();
-      }
-    },
-    [bpm, columnDurations, projectId, refreshStems, supabase, userId],
-  );
-
   const refreshStems = React.useCallback(async () => {
     const { data: stems } = await supabase
       .from("stems")
@@ -283,6 +217,72 @@ export default function ProjectPage() {
       setProfileMap(map);
     }
   }, [projectId, supabase]);
+
+  const stopAndSubmitStemRecording = React.useCallback(
+    async (stemType: StemType, columnIndex: number) => {
+      // Ensure we’re still recording this exact target
+      if (stemRecPhaseRef.current !== "recording") return;
+      const t = stemRecTargetRef.current;
+      if (!t || t.stemType !== stemType || t.columnIndex !== columnIndex) return;
+
+      if (stemAutoStopRef.current) window.clearTimeout(stemAutoStopRef.current);
+      stemAutoStopRef.current = null;
+
+      try {
+        const rec = getMasterRecorder();
+        const res = await rec.stop();
+        setStemRecPhase("idle");
+        setStemRecTarget(null);
+
+        // Create stem row (pending), upload audio, create asset
+        const { data: stem, error: stemErr } = await supabase
+          .from("stems")
+          .insert({
+            project_id: projectId,
+            stem_type: stemType,
+            column_index: columnIndex,
+            status: "pending",
+            created_by: userId,
+          })
+          .select("id")
+          .single();
+        if (stemErr) throw stemErr;
+
+        const storagePath = `projects/${projectId}/stems/${stemType}/col-${columnIndex + 1}/${Date.now()}-recorded.webm`;
+        try {
+          const { error: upErr } = await supabase.storage.from("stems").upload(storagePath, res.blob, {
+            contentType: res.blob.type || "audio/webm",
+            upsert: false,
+          });
+          if (upErr) throw upErr;
+
+          const { error: assetErr } = await supabase.from("stem_assets").insert({
+            stem_id: stem.id,
+            kind: "audio",
+            storage_path: storagePath,
+            metadata_json: {
+              source: "record",
+              countIn: 3,
+              bpm,
+              durationSec: columnDurations.get(columnIndex) ?? 8,
+            },
+          });
+          if (assetErr) throw assetErr;
+        } catch (e) {
+          // Roll back the stem row if upload/asset insert fails.
+          await supabase.from("stems").delete().eq("id", stem.id);
+          throw e;
+        }
+
+        alert("Recorded + submitted!");
+        await refreshStems();
+      } catch (err) {
+        alert(err instanceof Error ? err.message : "Recording submit failed");
+        await refreshStems();
+      }
+    },
+    [bpm, columnDurations, projectId, refreshStems, supabase, userId],
+  );
 
   React.useEffect(() => {
     (async () => {
