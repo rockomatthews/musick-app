@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { Box, Dialog, DialogContent, DialogTitle, Grid, IconButton, Stack, Typography } from "@mui/material";
+import { Box, Dialog, DialogContent, DialogTitle, IconButton, Stack, Typography } from "@mui/material";
+import Grid from "@mui/material/Grid2";
 import CloseIcon from "@mui/icons-material/Close";
 import * as Tone from "tone";
 import { getAudioEngine } from "@/audio/engine";
@@ -83,7 +84,7 @@ export function VirtualKeyboardDialog(props: { open: boolean; onClose: () => voi
           </Typography>
           <Grid container spacing={1}>
             {KEYMAP.map((k) => (
-              <Grid key={k.key} item xs={3} sm={2} md={1.5 as any}>
+              <Grid key={k.key} size={{ xs: 4, sm: 3, md: 2 }}>
                 <Box
                   sx={{
                     border: "1px solid rgba(255,255,255,0.15)",
