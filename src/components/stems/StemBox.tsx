@@ -5,6 +5,7 @@ import { Box, Chip, IconButton, Paper, Stack, Tooltip, Typography } from "@mui/m
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import FiberManualRecordIcon from "@mui/icons-material/FiberManualRecord";
 import StopIcon from "@mui/icons-material/Stop";
+import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import type { StemType } from "@/lib/stems/types";
 
 export type StemBoxStatus = "empty" | "pending" | "approved";
@@ -16,6 +17,9 @@ export function StemBox(props: {
   onAiMidi?: (stemType: StemType, columnIndex: number) => void;
   isRecording?: boolean;
   onRecordToggle?: (stemType: StemType, columnIndex: number) => void;
+  canPlay?: boolean;
+  isPlaying?: boolean;
+  onPlayToggle?: (stemType: StemType, columnIndex: number) => void;
 }) {
   const label =
     props.status === "empty" ? "Empty" : props.status === "pending" ? "Pending approval" : "Approved";
@@ -41,6 +45,22 @@ export function StemBox(props: {
             {props.columnIndex + 1}
           </Typography>
           <Stack direction="row" spacing={1} alignItems="center">
+            {props.onPlayToggle ? (
+              <Tooltip title={props.isPlaying ? "Stop" : props.canPlay ? "Play" : "Nothing to play yet"}>
+                <span>
+                  <IconButton
+                    size="small"
+                    disabled={!props.canPlay}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      props.onPlayToggle?.(props.stemType, props.columnIndex);
+                    }}
+                  >
+                    {props.isPlaying ? <StopIcon fontSize="small" /> : <PlayArrowIcon fontSize="small" />}
+                  </IconButton>
+                </span>
+              </Tooltip>
+            ) : null}
             {props.onRecordToggle ? (
               <Tooltip title={props.isRecording ? "Stop recording" : "Record"}>
                 <IconButton

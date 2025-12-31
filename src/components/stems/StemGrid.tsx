@@ -13,6 +13,9 @@ export function StemGrid(props: {
   statusFor?: (stemType: StemType, columnIndex: number) => StemBoxStatus;
   isRecordingFor?: (stemType: StemType, columnIndex: number) => boolean;
   onRecordToggle?: (stemType: StemType, columnIndex: number) => void;
+  canPlayFor?: (stemType: StemType, columnIndex: number) => boolean;
+  isPlayingFor?: (stemType: StemType, columnIndex: number) => boolean;
+  onPlayToggle?: (stemType: StemType, columnIndex: number) => void;
 }) {
   const statusFor = props.statusFor ?? (() => "empty" as StemBoxStatus);
   return (
@@ -49,6 +52,9 @@ export function StemGrid(props: {
                 onAiMidi={props.onAiMidi}
                 isRecording={props.isRecordingFor?.(s.type, col) ?? false}
                 onRecordToggle={props.onRecordToggle}
+                canPlay={props.canPlayFor?.(s.type, col) ?? false}
+                isPlaying={props.isPlayingFor?.(s.type, col) ?? false}
+                onPlayToggle={props.onPlayToggle}
               />
             ))}
           </Stack>

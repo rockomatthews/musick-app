@@ -89,10 +89,14 @@ export default function ProjectPage() {
 
   const [cellStatus, setCellStatus] = React.useState<Map<string, StemBoxStatus>>(new Map());
   const [cellApprovedStemId, setCellApprovedStemId] = React.useState<Map<string, string>>(new Map());
+  const [cellLatestAudioUrl, setCellLatestAudioUrl] = React.useState<Map<string, string>>(new Map());
+  const [cellLatestStemId, setCellLatestStemId] = React.useState<Map<string, string>>(new Map());
+  const [playingCellKey, setPlayingCellKey] = React.useState<string | null>(null);
 
   const [stemRecTarget, setStemRecTarget] = React.useState<{ stemType: StemType; columnIndex: number } | null>(null);
   const [stemRecPhase, setStemRecPhase] = React.useState<"idle" | "countin" | "recording">("idle");
   const countInTimerRef = React.useRef<number | null>(null);
+  const cellPlayerRef = React.useRef<Tone.Player | null>(null);
 
   const refreshStems = React.useCallback(async () => {
     const { data: stems } = await supabase
@@ -103,9 +107,12 @@ export default function ProjectPage() {
 
     const statusMap = new Map<string, StemBoxStatus>();
     const approvedIdMap = new Map<string, string>();
+    const latestUrlMap = new Map<string, string>();
+    const latestStemIdMap = new Map<string, string>();
     const pending: { id: string; stem_type: string; column_index: number; created_at: string; created_by: string }[] = [];
     const approvedAudioNext: { stemId: string; stemType: string; columnIndex: number; url: string }[] = [];
 
+    // Iterate newest→oldest (we requested created_at desc), so first audio we see per cell becomes "latest"
     for (const s of (stems as any[]) ?? []) {
       const k = `${s.stem_type}:${s.column_index}`;
       const st: "pending" | "approved" | "rejected" = s.status;
@@ -117,16 +124,26 @@ export default function ProjectPage() {
 
       if (st === "approved") {
         approvedIdMap.set(k, s.id);
-        const assets = (s.stem_assets as any[]) ?? [];
-        for (const a of assets) {
-          if (a.kind !== "audio") continue;
-          const p = String(a.storage_path ?? "");
-          if (!p) continue;
-          const url =
-            p.startsWith("http://") || p.startsWith("https://")
-              ? p
-              : supabase.storage.from("stems").getPublicUrl(p).data.publicUrl ?? null;
-          if (url) approvedAudioNext.push({ stemId: s.id, stemType: s.stem_type, columnIndex: s.column_index, url });
+      }
+
+      const assets = (s.stem_assets as any[]) ?? [];
+      for (const a of assets) {
+        if (a.kind !== "audio") continue;
+        const p = String(a.storage_path ?? "");
+        if (!p) continue;
+        const url =
+          p.startsWith("http://") || p.startsWith("https://")
+            ? p
+            : supabase.storage.from("stems").getPublicUrl(p).data.publicUrl ?? null;
+        if (!url) continue;
+
+        // For the global list, show approved and pending separately? For now: include both so "anyone can listen"
+        approvedAudioNext.push({ stemId: s.id, stemType: s.stem_type, columnIndex: s.column_index, url });
+
+        // For per-cell playback, keep the newest stem with audio (pending or approved)
+        if (!latestUrlMap.has(k)) {
+          latestUrlMap.set(k, url);
+          latestStemIdMap.set(k, s.id);
         }
       }
 
@@ -143,6 +160,8 @@ export default function ProjectPage() {
 
     setCellStatus(statusMap);
     setCellApprovedStemId(approvedIdMap);
+    setCellLatestAudioUrl(latestUrlMap);
+    setCellLatestStemId(latestStemIdMap);
     setPendingStems(pending);
     setApprovedAudio(approvedAudioNext);
   }, [projectId, supabase]);
@@ -574,6 +593,45 @@ export default function ProjectPage() {
             isRecordingFor={(stemType, columnIndex) =>
               Boolean(stemRecTarget && stemRecTarget.stemType === stemType && stemRecTarget.columnIndex === columnIndex && stemRecPhase !== "idle")
             }
+            canPlayFor={(stemType, columnIndex) => cellLatestAudioUrl.has(`${stemType}:${columnIndex}`)}
+            isPlayingFor={(stemType, columnIndex) => playingCellKey === `${stemType}:${columnIndex}`}
+            onPlayToggle={async (stemType, columnIndex) => {
+              const k = `${stemType}:${columnIndex}`;
+              const url = cellLatestAudioUrl.get(k);
+              if (!url) return;
+
+              const engine = getAudioEngine();
+              await engine.enable();
+
+              // toggle off
+              if (playingCellKey === k) {
+                try {
+                  cellPlayerRef.current?.stop();
+                  cellPlayerRef.current?.dispose();
+                } catch {
+                  // ignore
+                }
+                cellPlayerRef.current = null;
+                setPlayingCellKey(null);
+                return;
+              }
+
+              // stop current
+              try {
+                cellPlayerRef.current?.stop();
+                cellPlayerRef.current?.dispose();
+              } catch {
+                // ignore
+              }
+              cellPlayerRef.current = null;
+
+              const player = new Tone.Player(url);
+              player.connect(engine.getFxInput());
+              await player.load(url);
+              player.start();
+              cellPlayerRef.current = player;
+              setPlayingCellKey(k);
+            }}
             onRecordToggle={async (stemType, columnIndex) => {
               if (!userId) {
                 alert("Please login again.");
@@ -615,19 +673,25 @@ export default function ProjectPage() {
                     if (stemErr) throw stemErr;
 
                     const storagePath = `projects/${projectId}/stems/${stemType}/col-${columnIndex + 1}/${Date.now()}-recorded.webm`;
-                    const { error: upErr } = await supabase.storage.from("stems").upload(storagePath, res.blob, {
-                      contentType: res.blob.type || "audio/webm",
-                      upsert: false,
-                    });
-                    if (upErr) throw upErr;
+                    try {
+                      const { error: upErr } = await supabase.storage.from("stems").upload(storagePath, res.blob, {
+                        contentType: res.blob.type || "audio/webm",
+                        upsert: false,
+                      });
+                      if (upErr) throw upErr;
 
-                    const { error: assetErr } = await supabase.from("stem_assets").insert({
-                      stem_id: stem.id,
-                      kind: "audio",
-                      storage_path: storagePath,
-                      metadata_json: { source: "record", countIn: 3, bpm: 120 },
-                    });
-                    if (assetErr) throw assetErr;
+                      const { error: assetErr } = await supabase.from("stem_assets").insert({
+                        stem_id: stem.id,
+                        kind: "audio",
+                        storage_path: storagePath,
+                        metadata_json: { source: "record", countIn: 3, bpm: 120 },
+                      });
+                      if (assetErr) throw assetErr;
+                    } catch (e) {
+                      // Roll back the stem row if upload/asset insert fails.
+                      await supabase.from("stems").delete().eq("id", stem.id);
+                      throw e;
+                    }
 
                     alert("Recorded + submitted as pending stem!");
                     await refreshStems();
