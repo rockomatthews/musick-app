@@ -6,16 +6,15 @@ import AddBoxOutlinedIcon from "@mui/icons-material/AddBoxOutlined";
 import { STEM_TYPES, type StemType } from "@/lib/stems/types";
 import { StemBox, type StemBoxStatus } from "./StemBox";
 
-function statusFor(_stemType: StemType, _columnIndex: number): StemBoxStatus {
-  // Placeholder until we wire DB-backed stems.
-  return "empty";
-}
-
 export function StemGrid(props: {
   columnCount: number;
   onAddColumn: () => void;
   onAiMidi?: (stemType: StemType, columnIndex: number) => void;
+  statusFor?: (stemType: StemType, columnIndex: number) => StemBoxStatus;
+  isRecordingFor?: (stemType: StemType, columnIndex: number) => boolean;
+  onRecordToggle?: (stemType: StemType, columnIndex: number) => void;
 }) {
+  const statusFor = props.statusFor ?? (() => "empty" as StemBoxStatus);
   return (
     <Box sx={{ overflowX: "auto", pb: 1 }}>
       <Stack direction="row" spacing={2} alignItems="flex-start">
@@ -48,6 +47,8 @@ export function StemGrid(props: {
                 columnIndex={col}
                 status={statusFor(s.type, col)}
                 onAiMidi={props.onAiMidi}
+                isRecording={props.isRecordingFor?.(s.type, col) ?? false}
+                onRecordToggle={props.onRecordToggle}
               />
             ))}
           </Stack>

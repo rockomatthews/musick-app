@@ -3,6 +3,8 @@
 import * as React from "react";
 import { Box, Chip, IconButton, Paper, Stack, Tooltip, Typography } from "@mui/material";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
+import FiberManualRecordIcon from "@mui/icons-material/FiberManualRecord";
+import StopIcon from "@mui/icons-material/Stop";
 import type { StemType } from "@/lib/stems/types";
 
 export type StemBoxStatus = "empty" | "pending" | "approved";
@@ -12,6 +14,8 @@ export function StemBox(props: {
   columnIndex: number;
   status: StemBoxStatus;
   onAiMidi?: (stemType: StemType, columnIndex: number) => void;
+  isRecording?: boolean;
+  onRecordToggle?: (stemType: StemType, columnIndex: number) => void;
 }) {
   const label =
     props.status === "empty" ? "Empty" : props.status === "pending" ? "Pending approval" : "Approved";
@@ -27,7 +31,9 @@ export function StemBox(props: {
         minHeight: 92,
         display: "flex",
         alignItems: "center",
+        cursor: props.onRecordToggle ? "pointer" : "default",
       }}
+      onClick={() => props.onRecordToggle?.(props.stemType, props.columnIndex)}
     >
       <Stack spacing={1} sx={{ width: "100%" }}>
         <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
@@ -35,6 +41,19 @@ export function StemBox(props: {
             {props.columnIndex + 1}
           </Typography>
           <Stack direction="row" spacing={1} alignItems="center">
+            {props.onRecordToggle ? (
+              <Tooltip title={props.isRecording ? "Stop recording" : "Record"}>
+                <IconButton
+                  size="small"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    props.onRecordToggle?.(props.stemType, props.columnIndex);
+                  }}
+                >
+                  {props.isRecording ? <StopIcon fontSize="small" /> : <FiberManualRecordIcon fontSize="small" />}
+                </IconButton>
+              </Tooltip>
+            ) : null}
             {props.onAiMidi ? (
               <Tooltip title="AI MIDI (Magenta)">
                 <IconButton size="small" onClick={() => props.onAiMidi?.(props.stemType, props.columnIndex)}>

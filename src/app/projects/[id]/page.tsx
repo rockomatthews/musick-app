@@ -30,6 +30,7 @@ import {
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import StopIcon from "@mui/icons-material/Stop";
+import KeyboardIcon from "@mui/icons-material/Keyboard";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { StemGrid } from "@/components/stems/StemGrid";
 import { getAudioEngine } from "@/audio/engine";
@@ -39,6 +40,8 @@ import { getMasterRecorder } from "@/audio/recorder";
 import { MagentaMidiProvider, playAiMidi } from "@/ai/magenta/midi";
 import type { StemType } from "@/lib/stems/types";
 import { ProfileMenu } from "@/components/ProfileMenu";
+import type { StemBoxStatus } from "@/components/stems/StemBox";
+import { VirtualKeyboardDialog } from "@/components/virtual/VirtualKeyboardDialog";
 
 export default function ProjectPage() {
   const params = useParams<{ id: string }>();
@@ -59,6 +62,7 @@ export default function ProjectPage() {
   const [midiInputs, setMidiInputs] = React.useState<{ id: string; name: string }[]>([]);
   const [midiInputId, setMidiInputId] = React.useState<string>("");
   const [lastMidi, setLastMidi] = React.useState<string>("");
+  const [virtualOpen, setVirtualOpen] = React.useState(false);
 
   const [fxGain, setFxGain] = React.useState(1);
   const [fxDelay, setFxDelay] = React.useState(0.25);
@@ -82,6 +86,66 @@ export default function ProjectPage() {
     { id: string; stem_type: string; column_index: number; created_at: string; created_by: string }[]
   >([]);
   const [coverUrl, setCoverUrl] = React.useState<string | null>(null);
+
+  const [cellStatus, setCellStatus] = React.useState<Map<string, StemBoxStatus>>(new Map());
+  const [cellApprovedStemId, setCellApprovedStemId] = React.useState<Map<string, string>>(new Map());
+
+  const [stemRecTarget, setStemRecTarget] = React.useState<{ stemType: StemType; columnIndex: number } | null>(null);
+  const [stemRecPhase, setStemRecPhase] = React.useState<"idle" | "countin" | "recording">("idle");
+  const countInTimerRef = React.useRef<number | null>(null);
+
+  const refreshStems = React.useCallback(async () => {
+    const { data: stems } = await supabase
+      .from("stems")
+      .select("id,stem_type,column_index,status,created_at,created_by,stem_assets(kind,storage_path)")
+      .eq("project_id", projectId)
+      .order("created_at", { ascending: false });
+
+    const statusMap = new Map<string, StemBoxStatus>();
+    const approvedIdMap = new Map<string, string>();
+    const pending: { id: string; stem_type: string; column_index: number; created_at: string; created_by: string }[] = [];
+    const approvedAudioNext: { stemId: string; stemType: string; columnIndex: number; url: string }[] = [];
+
+    for (const s of (stems as any[]) ?? []) {
+      const k = `${s.stem_type}:${s.column_index}`;
+      const st: "pending" | "approved" | "rejected" = s.status;
+
+      // Choose best visible status per cell: approved > pending > empty
+      const cur = statusMap.get(k);
+      if (st === "approved") statusMap.set(k, "approved");
+      else if (st === "pending" && cur !== "approved") statusMap.set(k, "pending");
+
+      if (st === "approved") {
+        approvedIdMap.set(k, s.id);
+        const assets = (s.stem_assets as any[]) ?? [];
+        for (const a of assets) {
+          if (a.kind !== "audio") continue;
+          const p = String(a.storage_path ?? "");
+          if (!p) continue;
+          const url =
+            p.startsWith("http://") || p.startsWith("https://")
+              ? p
+              : supabase.storage.from("stems").getPublicUrl(p).data.publicUrl ?? null;
+          if (url) approvedAudioNext.push({ stemId: s.id, stemType: s.stem_type, columnIndex: s.column_index, url });
+        }
+      }
+
+      if (st === "pending") {
+        pending.push({
+          id: s.id,
+          stem_type: s.stem_type,
+          column_index: s.column_index,
+          created_at: s.created_at,
+          created_by: s.created_by,
+        });
+      }
+    }
+
+    setCellStatus(statusMap);
+    setCellApprovedStemId(approvedIdMap);
+    setPendingStems(pending);
+    setApprovedAudio(approvedAudioNext);
+  }, [projectId, supabase]);
 
   React.useEffect(() => {
     (async () => {
@@ -110,40 +174,9 @@ export default function ProjectPage() {
             : supabase.storage.from("project-images").getPublicUrl(p).data.publicUrl ?? null;
         setCoverUrl(url);
       }
-
-      const { data: stems } = await supabase
-        .from("stems")
-        .select("id,stem_type,column_index,status,stem_assets(kind,storage_path)")
-        .eq("project_id", projectId)
-        .eq("status", "approved");
-
-      const audio: { stemId: string; stemType: string; columnIndex: number; url: string }[] = [];
-      for (const s of (stems as any[]) ?? []) {
-        const assets = (s.stem_assets as any[]) ?? [];
-        for (const a of assets) {
-          if (a.kind !== "audio") continue;
-          const p = String(a.storage_path ?? "");
-          if (!p) continue;
-          if (p.startsWith("http://") || p.startsWith("https://")) {
-            audio.push({ stemId: s.id, stemType: s.stem_type, columnIndex: s.column_index, url: p });
-          } else {
-            // Assumes a Storage bucket named "stems". If you use a different bucket, we'll adjust this.
-            const { data } = supabase.storage.from("stems").getPublicUrl(p);
-            if (data.publicUrl) audio.push({ stemId: s.id, stemType: s.stem_type, columnIndex: s.column_index, url: data.publicUrl });
-          }
-        }
-      }
-      setApprovedAudio(audio);
-
-      const { data: pending } = await supabase
-        .from("stems")
-        .select("id,stem_type,column_index,created_at,created_by")
-        .eq("project_id", projectId)
-        .eq("status", "pending")
-        .order("created_at", { ascending: false });
-      setPendingStems((pending as any[]) ?? []);
+      await refreshStems();
     })();
-  }, [projectId, router, supabase]);
+  }, [projectId, refreshStems, router, supabase]);
 
   async function addColumn() {
     const next = columnCount + 1;
@@ -387,7 +420,23 @@ export default function ProjectPage() {
                 </Typography>
               </Stack>
             </Box>
+
+            <Box sx={{ flex: 1 }}>
+              <Typography fontWeight={900} sx={{ mb: 1 }}>
+                Virtual
+              </Typography>
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems={{ sm: "center" }}>
+                <Button variant="contained" startIcon={<KeyboardIcon />} onClick={() => setVirtualOpen(true)}>
+                  Open keyboard
+                </Button>
+                <Typography variant="body2" color="text.secondary">
+                  Play with A/W/S/E/D… then record into a stem box.
+                </Typography>
+              </Stack>
+            </Box>
           </Stack>
+
+          <VirtualKeyboardDialog open={virtualOpen} onClose={() => setVirtualOpen(false)} />
 
           <Paper variant="outlined" sx={{ p: 2 }}>
             <Typography fontWeight={900} sx={{ mb: 1 }}>
@@ -520,6 +569,125 @@ export default function ProjectPage() {
               // Generate and audition (not yet saved as an asset)
               const midi = await MagentaMidiProvider.generateMidi({ stemType, bars: 2, temperature: 1.1 });
               await playAiMidi(midi);
+            }}
+            statusFor={(stemType, columnIndex) => cellStatus.get(`${stemType}:${columnIndex}`) ?? "empty"}
+            isRecordingFor={(stemType, columnIndex) =>
+              Boolean(stemRecTarget && stemRecTarget.stemType === stemType && stemRecTarget.columnIndex === columnIndex && stemRecPhase !== "idle")
+            }
+            onRecordToggle={async (stemType, columnIndex) => {
+              if (!userId) {
+                alert("Please login again.");
+                return;
+              }
+              if (isRecording) {
+                alert("Stop the master recording first.");
+                return;
+              }
+
+              // Stop current box recording
+              if (stemRecTarget && stemRecTarget.stemType === stemType && stemRecTarget.columnIndex === columnIndex) {
+                if (stemRecPhase === "countin") {
+                  if (countInTimerRef.current) window.clearTimeout(countInTimerRef.current);
+                  countInTimerRef.current = null;
+                  setStemRecTarget(null);
+                  setStemRecPhase("idle");
+                  return;
+                }
+                if (stemRecPhase === "recording") {
+                  try {
+                    const rec = getMasterRecorder();
+                    const res = await rec.stop();
+                    setStemRecPhase("idle");
+                    setStemRecTarget(null);
+
+                    // Create stem row (pending), upload audio, create asset
+                    const { data: stem, error: stemErr } = await supabase
+                      .from("stems")
+                      .insert({
+                        project_id: projectId,
+                        stem_type: stemType,
+                        column_index: columnIndex,
+                        status: "pending",
+                        created_by: userId,
+                      })
+                      .select("id")
+                      .single();
+                    if (stemErr) throw stemErr;
+
+                    const storagePath = `projects/${projectId}/stems/${stemType}/col-${columnIndex + 1}/${Date.now()}-recorded.webm`;
+                    const { error: upErr } = await supabase.storage.from("stems").upload(storagePath, res.blob, {
+                      contentType: res.blob.type || "audio/webm",
+                      upsert: false,
+                    });
+                    if (upErr) throw upErr;
+
+                    const { error: assetErr } = await supabase.from("stem_assets").insert({
+                      stem_id: stem.id,
+                      kind: "audio",
+                      storage_path: storagePath,
+                      metadata_json: { source: "record", countIn: 3, bpm: 120 },
+                    });
+                    if (assetErr) throw assetErr;
+
+                    alert("Recorded + submitted as pending stem!");
+                    await refreshStems();
+                    return;
+                  } catch (err) {
+                    alert(err instanceof Error ? err.message : "Recording submit failed");
+                    await refreshStems();
+                    return;
+                  }
+                }
+              }
+
+              // If another box recording is active, block
+              if (stemRecPhase !== "idle") {
+                alert("Finish the current stem recording first.");
+                return;
+              }
+
+              // Start count-in then begin recording
+              const engine = getAudioEngine();
+              await engine.enable();
+
+              setStemRecTarget({ stemType, columnIndex });
+              setStemRecPhase("countin");
+
+              // 3-click count-in at 120 BPM (quarter note = 500ms)
+              try {
+                const synth = new Tone.MembraneSynth({ volume: -6 }).toDestination();
+                const now = Tone.now() + 0.05;
+                const beatSec = 0.5;
+                for (let i = 0; i < 3; i += 1) {
+                  synth.triggerAttackRelease(i === 0 ? "C5" : "C4", "16n", now + i * beatSec, 0.9);
+                }
+                countInTimerRef.current = window.setTimeout(async () => {
+                  countInTimerRef.current = null;
+                  try {
+                    const rec = getMasterRecorder();
+                    await rec.start();
+                    setStemRecPhase("recording");
+                  } catch (e) {
+                    setStemRecTarget(null);
+                    setStemRecPhase("idle");
+                    alert(e instanceof Error ? e.message : "Failed to start recording");
+                  }
+                }, 3 * beatSec * 1000);
+              } catch {
+                // If click synth fails, still try to record after the delay
+                countInTimerRef.current = window.setTimeout(async () => {
+                  countInTimerRef.current = null;
+                  try {
+                    const rec = getMasterRecorder();
+                    await rec.start();
+                    setStemRecPhase("recording");
+                  } catch (e) {
+                    setStemRecTarget(null);
+                    setStemRecPhase("idle");
+                    alert(e instanceof Error ? e.message : "Failed to start recording");
+                  }
+                }, 1500);
+              }
             }}
           />
 
