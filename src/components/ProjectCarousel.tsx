@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import Link from "next/link";
-import Image from "next/image";
 import {
   Box,
   Card,
@@ -52,7 +51,12 @@ export function ProjectCarousel(props: { title: string; projects: ProjectCardMod
             <CardActionArea component={Link as any} href={`/projects/${p.id}`}>
               {p.cover_image_url ? (
                 <CardMedia sx={{ height: 140, position: "relative" }}>
-                  <Image src={p.cover_image_url} alt={p.title} fill style={{ objectFit: "cover" }} />
+                  <Box
+                    component="img"
+                    src={p.cover_image_url}
+                    alt={p.title}
+                    sx={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
+                  />
                 </CardMedia>
               ) : (
                 <CardMedia sx={{ height: 140, bgcolor: "rgba(255,255,255,0.06)" }} />

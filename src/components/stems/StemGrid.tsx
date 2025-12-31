@@ -20,6 +20,7 @@ export function StemGrid(props: {
   isOwner?: boolean;
   onLockStem?: (stemId: string) => void;
   onPlayStem?: (stemId: string) => void;
+  renderColumnHeader?: (columnIndex: number) => React.ReactNode;
 }) {
   const statusFor = props.statusFor ?? (() => "empty" as StemBoxStatus);
   return (
@@ -46,7 +47,9 @@ export function StemGrid(props: {
 
         {Array.from({ length: props.columnCount }).map((_, col) => (
           <Stack key={col} spacing={2} sx={{ minWidth: 220 }}>
-            <Box sx={{ height: 40 }} />
+            <Box sx={{ minHeight: 40, display: "flex", alignItems: "center" }}>
+              {props.renderColumnHeader ? props.renderColumnHeader(col) : null}
+            </Box>
             {STEM_TYPES.map((s) => (
               <StemBox
                 key={`${s.type}-${col}`}

@@ -479,61 +479,6 @@ export default function ProjectPage() {
         <Stack spacing={2}>
           {isOwner ? (
             <Paper variant="outlined" sx={{ p: 2 }}>
-              <Typography fontWeight={900}>Project timing</Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                BPM controls the click/count-in. Column duration auto-stops stem recordings.
-              </Typography>
-              <Stack direction={{ xs: "column", md: "row" }} spacing={3} sx={{ mt: 2 }}>
-                <Box sx={{ minWidth: 260 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    BPM: {bpm}
-                  </Typography>
-                  <Slider
-                    min={60}
-                    max={200}
-                    step={1}
-                    value={bpm}
-                    onChange={(_, v) => setBpm(Number(v))}
-                    onChangeCommitted={(_, v) => void saveBpm(Number(v))}
-                  />
-                </Box>
-                <Box sx={{ flex: 1 }}>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                    Duration per column (seconds)
-                  </Typography>
-                  <Stack direction="row" spacing={2} sx={{ overflowX: "auto", pb: 1 }}>
-                    {Array.from({ length: columnCount }).map((_, i) => (
-                      <Box key={i} sx={{ minWidth: 180 }}>
-                        <Typography fontWeight={800} variant="body2">
-                          Column {i + 1}
-                        </Typography>
-                        <Slider
-                          min={2}
-                          max={60}
-                          step={1}
-                          value={columnDurations.get(i) ?? 8}
-                          onChange={(_, v) => {
-                            const sec = Number(v);
-                            setColumnDurations((prev) => {
-                              const m = new Map(prev);
-                              m.set(i, sec);
-                              return m;
-                            });
-                          }}
-                          onChangeCommitted={(_, v) => void saveColumnDuration(i, Number(v))}
-                        />
-                        <Typography variant="caption" color="text.secondary">
-                          {columnDurations.get(i) ?? 8}s
-                        </Typography>
-                      </Box>
-                    ))}
-                  </Stack>
-                </Box>
-              </Stack>
-            </Paper>
-          ) : null}
-          {isOwner ? (
-            <Paper variant="outlined" sx={{ p: 2 }}>
               <Typography fontWeight={900}>Project cover image</Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
                 This image shows up on the homepage carousels.
@@ -792,9 +737,62 @@ export default function ProjectPage() {
             )}
           </Paper>
 
+          <Paper variant="outlined" sx={{ p: 1.5 }}>
+            <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ md: "center" }}>
+              <Stack direction="row" spacing={1.25} alignItems="center" sx={{ minWidth: 320 }}>
+                <Typography fontWeight={900}>BPM</Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ minWidth: 40 }}>
+                  {bpm}
+                </Typography>
+                <Slider
+                  min={60}
+                  max={200}
+                  step={1}
+                  value={bpm}
+                  onChange={(_, v) => setBpm(Number(v))}
+                  onChangeCommitted={(_, v) => void saveBpm(Number(v))}
+                  sx={{ flex: 1 }}
+                />
+              </Stack>
+              <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>
+                Count-in uses BPM. Each column has its own duration (shown above each column) and box recording auto-stops at that duration.
+              </Typography>
+            </Stack>
+          </Paper>
+
           <StemGrid
             columnCount={columnCount}
             onAddColumn={addColumn}
+            renderColumnHeader={(col) => (
+              <Stack direction="row" spacing={1} alignItems="center" sx={{ width: "100%" }}>
+                <Typography fontWeight={900} variant="body2" sx={{ flex: 1 }}>
+                  Col {col + 1}
+                </Typography>
+                {isOwner ? (
+                  <TextField
+                    size="small"
+                    type="number"
+                    label="sec"
+                    value={columnDurations.get(col) ?? 8}
+                    inputProps={{ min: 2, max: 600, step: 1 }}
+                    onChange={(e) => {
+                      const v = Math.max(2, Number(e.target.value || 8));
+                      setColumnDurations((prev) => {
+                        const m = new Map(prev);
+                        m.set(col, v);
+                        return m;
+                      });
+                    }}
+                    onBlur={() => void saveColumnDuration(col, columnDurations.get(col) ?? 8)}
+                    sx={{ width: 110 }}
+                  />
+                ) : (
+                  <Typography variant="body2" color="text.secondary">
+                    {columnDurations.get(col) ?? 8}s
+                  </Typography>
+                )}
+              </Stack>
+            )}
             onAiMidi={async (stemType: StemType, _columnIndex: number) => {
               const engine = getAudioEngine();
               await engine.enable();
