@@ -147,94 +147,6 @@ export default function ProjectPage() {
     stemRecPhaseRef.current = stemRecPhase;
   }, [stemRecPhase]);
 
-  // If user armed a virtual recording, start count-in only after the virtual instrument dialog is opened.
-  React.useEffect(() => {
-    if (!armedVirtualRecordTarget) return;
-    if (!virtualOpen) return;
-    if (stemRecPhase !== "idle") return;
-    const { stemType, columnIndex } = armedVirtualRecordTarget;
-    // Start the same recording flow as clicking the box, now that virtual is open.
-    void (async () => {
-      // Start count-in then begin recording
-      const engine = getAudioEngine();
-      await engine.enable();
-
-      setStemRecTarget({ stemType, columnIndex });
-      setStemRecPhase("countin");
-
-      // 3-click count-in at project BPM
-      try {
-        const synth = new Tone.MembraneSynth({ volume: -6 }).toDestination();
-        const now = Tone.now() + 0.05;
-        const beatSec = 60 / Math.max(1, bpm);
-        for (let i = 0; i < 3; i += 1) {
-          synth.triggerAttackRelease(i === 0 ? "C5" : "C4", "16n", now + i * beatSec, 0.9);
-        }
-        countInTimerRef.current = window.setTimeout(async () => {
-          countInTimerRef.current = null;
-          try {
-            const trackCfg = trackSettings.get(stemType) ?? { recordMode: "dry" as const };
-            const sourceTone =
-              trackCfg.recordMode === "wet" ? engine.getTrackWetOutput(stemType) : engine.getTrackDryInput(stemType);
-            const sourceAudio = (sourceTone as any)?.output as AudioNode | undefined;
-            if (!sourceAudio) throw new Error("Failed to initialize recording source");
-            const rec = new NodeRecorder();
-            await rec.startFrom(sourceAudio);
-            stemRecorderRef.current = rec;
-            setStemRecPhase("recording");
-
-            // Auto-stop at per-column duration
-            const durationSec = columnDurations.get(columnIndex) ?? 8;
-            stemAutoStopRef.current = window.setTimeout(() => {
-              void stopAndSubmitStemRecording(stemType, columnIndex);
-            }, durationSec * 1000);
-          } catch (e) {
-            setStemRecTarget(null);
-            setStemRecPhase("idle");
-            alert(e instanceof Error ? e.message : "Failed to start recording");
-          } finally {
-            setArmedVirtualRecordTarget(null);
-          }
-        }, 3 * beatSec * 1000);
-      } catch {
-        // If click synth fails, still try to record after the delay
-        countInTimerRef.current = window.setTimeout(async () => {
-          countInTimerRef.current = null;
-          try {
-            const trackCfg = trackSettings.get(stemType) ?? { recordMode: "dry" as const };
-            const sourceTone =
-              trackCfg.recordMode === "wet" ? engine.getTrackWetOutput(stemType) : engine.getTrackDryInput(stemType);
-            const sourceAudio = (sourceTone as any)?.output as AudioNode | undefined;
-            if (!sourceAudio) throw new Error("Failed to initialize recording source");
-            const rec = new NodeRecorder();
-            await rec.startFrom(sourceAudio);
-            stemRecorderRef.current = rec;
-            setStemRecPhase("recording");
-
-            const durationSec = columnDurations.get(columnIndex) ?? 8;
-            stemAutoStopRef.current = window.setTimeout(() => {
-              void stopAndSubmitStemRecording(stemType, columnIndex);
-            }, durationSec * 1000);
-          } catch (e) {
-            setStemRecTarget(null);
-            setStemRecPhase("idle");
-            alert(e instanceof Error ? e.message : "Failed to start recording");
-          } finally {
-            setArmedVirtualRecordTarget(null);
-          }
-        }, 1500);
-      }
-    })();
-  }, [
-    armedVirtualRecordTarget,
-    bpm,
-    columnDurations,
-    stemRecPhase,
-    stopAndSubmitStemRecording,
-    trackSettings,
-    virtualOpen,
-  ]);
-
   const refreshStems = React.useCallback(async () => {
     const { data: stems } = await supabase
       .from("stems")
@@ -423,6 +335,86 @@ export default function ProjectPage() {
     },
     [bpm, columnDurations, projectId, refreshStems, supabase, trackSettings, userId],
   );
+
+  // If user armed a virtual recording, start count-in only after the virtual instrument dialog is opened.
+  React.useEffect(() => {
+    if (!armedVirtualRecordTarget) return;
+    if (!virtualOpen) return;
+    if (stemRecPhase !== "idle") return;
+    const { stemType, columnIndex } = armedVirtualRecordTarget;
+    // Start the same recording flow as clicking the box, now that virtual is open.
+    void (async () => {
+      // Start count-in then begin recording
+      const engine = getAudioEngine();
+      await engine.enable();
+
+      setStemRecTarget({ stemType, columnIndex });
+      setStemRecPhase("countin");
+
+      // 3-click count-in at project BPM
+      try {
+        const synth = new Tone.MembraneSynth({ volume: -6 }).toDestination();
+        const now = Tone.now() + 0.05;
+        const beatSec = 60 / Math.max(1, bpm);
+        for (let i = 0; i < 3; i += 1) {
+          synth.triggerAttackRelease(i === 0 ? "C5" : "C4", "16n", now + i * beatSec, 0.9);
+        }
+        countInTimerRef.current = window.setTimeout(async () => {
+          countInTimerRef.current = null;
+          try {
+            const trackCfg = trackSettings.get(stemType) ?? { recordMode: "dry" as const };
+            const sourceTone =
+              trackCfg.recordMode === "wet" ? engine.getTrackWetOutput(stemType) : engine.getTrackDryInput(stemType);
+            const sourceAudio = (sourceTone as any)?.output as AudioNode | undefined;
+            if (!sourceAudio) throw new Error("Failed to initialize recording source");
+            const rec = new NodeRecorder();
+            await rec.startFrom(sourceAudio);
+            stemRecorderRef.current = rec;
+            setStemRecPhase("recording");
+
+            // Auto-stop at per-column duration
+            const durationSec = columnDurations.get(columnIndex) ?? 8;
+            stemAutoStopRef.current = window.setTimeout(() => {
+              void stopAndSubmitStemRecording(stemType, columnIndex);
+            }, durationSec * 1000);
+          } catch (e) {
+            setStemRecTarget(null);
+            setStemRecPhase("idle");
+            alert(e instanceof Error ? e.message : "Failed to start recording");
+          } finally {
+            setArmedVirtualRecordTarget(null);
+          }
+        }, 3 * beatSec * 1000);
+      } catch {
+        // If click synth fails, still try to record after the delay
+        countInTimerRef.current = window.setTimeout(async () => {
+          countInTimerRef.current = null;
+          try {
+            const trackCfg = trackSettings.get(stemType) ?? { recordMode: "dry" as const };
+            const sourceTone =
+              trackCfg.recordMode === "wet" ? engine.getTrackWetOutput(stemType) : engine.getTrackDryInput(stemType);
+            const sourceAudio = (sourceTone as any)?.output as AudioNode | undefined;
+            if (!sourceAudio) throw new Error("Failed to initialize recording source");
+            const rec = new NodeRecorder();
+            await rec.startFrom(sourceAudio);
+            stemRecorderRef.current = rec;
+            setStemRecPhase("recording");
+
+            const durationSec = columnDurations.get(columnIndex) ?? 8;
+            stemAutoStopRef.current = window.setTimeout(() => {
+              void stopAndSubmitStemRecording(stemType, columnIndex);
+            }, durationSec * 1000);
+          } catch (e) {
+            setStemRecTarget(null);
+            setStemRecPhase("idle");
+            alert(e instanceof Error ? e.message : "Failed to start recording");
+          } finally {
+            setArmedVirtualRecordTarget(null);
+          }
+        }, 1500);
+      }
+    })();
+  }, [armedVirtualRecordTarget, bpm, columnDurations, stemRecPhase, stopAndSubmitStemRecording, trackSettings, virtualOpen]);
 
   const stopTransport = React.useCallback(() => {
     if (transportTimerRef.current) window.clearTimeout(transportTimerRef.current);
