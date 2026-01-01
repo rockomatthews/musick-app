@@ -34,6 +34,7 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import StopIcon from "@mui/icons-material/Stop";
 import KeyboardIcon from "@mui/icons-material/Keyboard";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { StemGrid } from "@/components/stems/StemGrid";
 import { getAudioEngine } from "@/audio/engine";
@@ -1331,8 +1332,11 @@ export default function ProjectPage() {
             }}
             renderColumnHeader={(col) => (
               <Stack direction="row" spacing={1} alignItems="center" sx={{ width: "100%" }}>
-                <IconButton
+                <Button
                   size="small"
+                  variant={transportPlaying && transportMode === "scene" && activeSection === col ? "contained" : "outlined"}
+                  color={transportPlaying && transportMode === "scene" && activeSection === col ? "error" : "primary"}
+                  startIcon={transportPlaying && transportMode === "scene" && activeSection === col ? <StopIcon /> : <PlayArrowIcon />}
                   onClick={(e) => {
                     e.stopPropagation();
                     // Toggle per-column loop play (scene mode)
@@ -1342,17 +1346,51 @@ export default function ProjectPage() {
                     }
                     void startSceneSection(col);
                   }}
-                  aria-label={transportPlaying && transportMode === "scene" && activeSection === col ? "Stop column" : "Play column"}
+                  sx={{ minWidth: 92 }}
                 >
-                  {transportPlaying && transportMode === "scene" && activeSection === col ? (
-                    <StopIcon fontSize="small" />
-                  ) : (
-                    <PlayArrowIcon fontSize="small" />
-                  )}
-                </IconButton>
+                  {transportPlaying && transportMode === "scene" && activeSection === col ? "Stop" : "Play"}
+                </Button>
                 <Typography fontWeight={900} variant="body2" sx={{ flex: 1 }}>
                   Col {col + 1}
                 </Typography>
+                <Tooltip title={isOwner ? "Delete this section (only last section can be deleted)" : "Owner only"}>
+                  <span>
+                    <IconButton
+                      size="small"
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        if (!isOwner) return;
+                        if (col !== columnCount - 1) {
+                          alert("For now, you can only delete the last section.");
+                          return;
+                        }
+                        // reuse the delete-last behavior
+                        await (async () => {
+                          if (columnCount <= 1) return;
+                          const ok = confirm(`Delete Section ${columnCount}? This will delete all stems in that section.`);
+                          if (!ok) return;
+                          const removeIndex = columnCount - 1;
+                          stopTransport();
+                          await supabase.from("stems").delete().eq("project_id", projectId).eq("column_index", removeIndex);
+                          await supabase.from("project_columns").delete().eq("project_id", projectId).eq("column_index", removeIndex);
+                          const next = columnCount - 1;
+                          await supabase.from("projects").update({ column_count: next }).eq("id", projectId);
+                          setColumnCount(next);
+                          setColumnDurations((prev) => {
+                            const m = new Map(prev);
+                            m.delete(removeIndex);
+                            return m;
+                          });
+                          await refreshStems();
+                        })();
+                      }}
+                      disabled={!isOwner || col !== columnCount - 1 || columnCount <= 1}
+                      aria-label="Delete section"
+                    >
+                      <DeleteOutlineIcon fontSize="small" />
+                    </IconButton>
+                  </span>
+                </Tooltip>
                 {isOwner ? (
                   <TextField
                     size="small"

@@ -185,6 +185,25 @@ export function StemBox(props: {
                       </IconButton>
                     </Tooltip>
                   ) : null}
+                  {props.currentUserId && props.onDeleteStem && props.currentUserId === s.userId && !s.locked ? (
+                    <Tooltip title="Delete your submission">
+                      <IconButton
+                        size="small"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          props.onDeleteStem?.(s.stemId);
+                        }}
+                        sx={{
+                          position: "absolute",
+                          right: -6,
+                          top: -6,
+                          bgcolor: "rgba(0,0,0,0.45)",
+                        }}
+                      >
+                        <DeleteOutlineIcon sx={{ fontSize: 14 }} />
+                      </IconButton>
+                    </Tooltip>
+                  ) : null}
                 </span>
               </Tooltip>
             ))}

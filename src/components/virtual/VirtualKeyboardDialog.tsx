@@ -64,7 +64,10 @@ export function VirtualKeyboardDialog(props: {
       } catch {
         // ignore
       }
-      synthRef.current.connect(synthOut);
+      // Hard-disable synth output while in drum mode to avoid any piano bleed.
+      if (props.mode === "synth") {
+        synthRef.current.connect(synthOut);
+      }
 
       const drumOut = engine.getTrackDryInput(props.drumsOutputStemType);
       if (!drumRef.current) {
@@ -91,7 +94,7 @@ export function VirtualKeyboardDialog(props: {
       drumRef.current.clap.connect(drumOut);
       drumRef.current.tom.connect(drumOut);
     })();
-  }, [props.drumsOutputStemType, props.open, props.synthOutputStemType]);
+  }, [props.drumsOutputStemType, props.mode, props.open, props.synthOutputStemType]);
 
   React.useEffect(() => {
     if (!props.open) return;
