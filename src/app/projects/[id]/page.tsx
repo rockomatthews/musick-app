@@ -102,7 +102,15 @@ export default function ProjectPage() {
   const [cellSubmissions, setCellSubmissions] = React.useState<
     Map<
       string,
-      { userId: string; stemId: string; audioUrl: string | null; locked: boolean; playCount: number; createdAt: string }[]
+      {
+        userId: string;
+        stemId: string;
+        audioUrl: string | null;
+        storagePath: string | null;
+        locked: boolean;
+        playCount: number;
+        createdAt: string;
+      }[]
     >
   >(new Map());
   const [cellSelectedStemId, setCellSelectedStemId] = React.useState<Map<string, string>>(new Map());
@@ -125,6 +133,9 @@ export default function ProjectPage() {
   const cellPlayerRef = React.useRef<Tone.Player | null>(null);
   const stemAutoStopRef = React.useRef<number | null>(null);
   const stemRecorderRef = React.useRef<NodeRecorder | null>(null);
+  const [armedVirtualRecordTarget, setArmedVirtualRecordTarget] = React.useState<{ stemType: StemType; columnIndex: number } | null>(
+    null,
+  );
   const stemRecTargetRef = React.useRef<{ stemType: StemType; columnIndex: number } | null>(null);
   const stemRecPhaseRef = React.useRef<"idle" | "countin" | "recording">("idle");
 
@@ -134,6 +145,94 @@ export default function ProjectPage() {
   React.useEffect(() => {
     stemRecPhaseRef.current = stemRecPhase;
   }, [stemRecPhase]);
+
+  // If user armed a virtual recording, start count-in only after the virtual instrument dialog is opened.
+  React.useEffect(() => {
+    if (!armedVirtualRecordTarget) return;
+    if (!virtualOpen) return;
+    if (stemRecPhase !== "idle") return;
+    const { stemType, columnIndex } = armedVirtualRecordTarget;
+    // Start the same recording flow as clicking the box, now that virtual is open.
+    void (async () => {
+      // Start count-in then begin recording
+      const engine = getAudioEngine();
+      await engine.enable();
+
+      setStemRecTarget({ stemType, columnIndex });
+      setStemRecPhase("countin");
+
+      // 3-click count-in at project BPM
+      try {
+        const synth = new Tone.MembraneSynth({ volume: -6 }).toDestination();
+        const now = Tone.now() + 0.05;
+        const beatSec = 60 / Math.max(1, bpm);
+        for (let i = 0; i < 3; i += 1) {
+          synth.triggerAttackRelease(i === 0 ? "C5" : "C4", "16n", now + i * beatSec, 0.9);
+        }
+        countInTimerRef.current = window.setTimeout(async () => {
+          countInTimerRef.current = null;
+          try {
+            const trackCfg = trackSettings.get(stemType) ?? { recordMode: "dry" as const };
+            const sourceTone =
+              trackCfg.recordMode === "wet" ? engine.getTrackWetOutput(stemType) : engine.getTrackDryInput(stemType);
+            const sourceAudio = (sourceTone as any)?.output as AudioNode | undefined;
+            if (!sourceAudio) throw new Error("Failed to initialize recording source");
+            const rec = new NodeRecorder();
+            await rec.startFrom(sourceAudio);
+            stemRecorderRef.current = rec;
+            setStemRecPhase("recording");
+
+            // Auto-stop at per-column duration
+            const durationSec = columnDurations.get(columnIndex) ?? 8;
+            stemAutoStopRef.current = window.setTimeout(() => {
+              void stopAndSubmitStemRecording(stemType, columnIndex);
+            }, durationSec * 1000);
+          } catch (e) {
+            setStemRecTarget(null);
+            setStemRecPhase("idle");
+            alert(e instanceof Error ? e.message : "Failed to start recording");
+          } finally {
+            setArmedVirtualRecordTarget(null);
+          }
+        }, 3 * beatSec * 1000);
+      } catch {
+        // If click synth fails, still try to record after the delay
+        countInTimerRef.current = window.setTimeout(async () => {
+          countInTimerRef.current = null;
+          try {
+            const trackCfg = trackSettings.get(stemType) ?? { recordMode: "dry" as const };
+            const sourceTone =
+              trackCfg.recordMode === "wet" ? engine.getTrackWetOutput(stemType) : engine.getTrackDryInput(stemType);
+            const sourceAudio = (sourceTone as any)?.output as AudioNode | undefined;
+            if (!sourceAudio) throw new Error("Failed to initialize recording source");
+            const rec = new NodeRecorder();
+            await rec.startFrom(sourceAudio);
+            stemRecorderRef.current = rec;
+            setStemRecPhase("recording");
+
+            const durationSec = columnDurations.get(columnIndex) ?? 8;
+            stemAutoStopRef.current = window.setTimeout(() => {
+              void stopAndSubmitStemRecording(stemType, columnIndex);
+            }, durationSec * 1000);
+          } catch (e) {
+            setStemRecTarget(null);
+            setStemRecPhase("idle");
+            alert(e instanceof Error ? e.message : "Failed to start recording");
+          } finally {
+            setArmedVirtualRecordTarget(null);
+          }
+        }, 1500);
+      }
+    })();
+  }, [
+    armedVirtualRecordTarget,
+    bpm,
+    columnDurations,
+    stemRecPhase,
+    stopAndSubmitStemRecording,
+    trackSettings,
+    virtualOpen,
+  ]);
 
   const refreshStems = React.useCallback(async () => {
     const { data: stems } = await supabase
@@ -150,7 +249,15 @@ export default function ProjectPage() {
     const approvedAudioNext: { stemId: string; stemType: string; columnIndex: number; url: string }[] = [];
     const submissionsMap = new Map<
       string,
-      { userId: string; stemId: string; audioUrl: string | null; locked: boolean; playCount: number; createdAt: string }[]
+      {
+        userId: string;
+        stemId: string;
+        audioUrl: string | null;
+        storagePath: string | null;
+        locked: boolean;
+        playCount: number;
+        createdAt: string;
+      }[]
     >();
     const userIds = new Set<string>();
 
@@ -173,10 +280,12 @@ export default function ProjectPage() {
 
       const assets = (s.stem_assets as any[]) ?? [];
       let audioUrl: string | null = null;
+      let storagePath: string | null = null;
       for (const a of assets) {
         if (a.kind !== "audio") continue;
         const p = String(a.storage_path ?? "");
         if (!p) continue;
+        storagePath = storagePath ?? p;
         const url =
           p.startsWith("http://") || p.startsWith("https://")
             ? p
@@ -198,7 +307,7 @@ export default function ProjectPage() {
       const uid = String(s.created_by ?? "");
       if (uid) userIds.add(uid);
       const list = submissionsMap.get(k) ?? [];
-      list.push({ userId: uid, stemId: s.id, audioUrl, locked, playCount, createdAt });
+      list.push({ userId: uid, stemId: s.id, audioUrl, storagePath, locked, playCount, createdAt });
       submissionsMap.set(k, list);
 
       if (st === "pending") {
@@ -393,6 +502,27 @@ export default function ProjectPage() {
       }
     },
     [cellSelectedStemId, cellSubmissions, supabase],
+  );
+
+  const startSceneSection = React.useCallback(
+    async (sectionIndex: number) => {
+      if (transportPlaying) stopTransport();
+      setTransportMode("scene");
+      setTransportLoop(true);
+      setTransportPlaying(true);
+      setActiveSection(sectionIndex);
+
+      const playOneAndSchedule = async () => {
+        await playSection(sectionIndex);
+        const durationSec = columnDurations.get(sectionIndex) ?? 8;
+        transportTimerRef.current = window.setTimeout(() => {
+          void playOneAndSchedule();
+        }, durationSec * 1000);
+      };
+
+      await playOneAndSchedule();
+    },
+    [columnDurations, playSection, stopTransport, transportPlaying],
   );
 
   const startTransport = React.useCallback(async () => {
@@ -641,6 +771,10 @@ export default function ProjectPage() {
           eqLow: typeof fx.eqLow === "number" ? fx.eqLow : 0,
           eqMid: typeof fx.eqMid === "number" ? fx.eqMid : 0,
           eqHigh: typeof fx.eqHigh === "number" ? fx.eqHigh : 0,
+          compThreshold: typeof fx.compThreshold === "number" ? fx.compThreshold : -18,
+          compRatio: typeof fx.compRatio === "number" ? fx.compRatio : 3,
+          distortion: typeof fx.distortion === "number" ? fx.distortion : 0,
+          distortionWet: typeof fx.distortionWet === "number" ? fx.distortionWet : 0,
         });
       }
 
@@ -1171,8 +1305,51 @@ export default function ProjectPage() {
           <StemGrid
             columnCount={columnCount}
             onAddColumn={addColumn}
+            onDeleteColumn={async () => {
+              if (!isOwner) return;
+              if (columnCount <= 1) return;
+              const ok = confirm(`Delete Section ${columnCount}? This will delete all stems in that section.`);
+              if (!ok) return;
+              const removeIndex = columnCount - 1;
+              // Stop transport if running
+              stopTransport();
+
+              // Delete stems in the column (assets cascade)
+              await supabase.from("stems").delete().eq("project_id", projectId).eq("column_index", removeIndex);
+              // Delete column duration row
+              await supabase.from("project_columns").delete().eq("project_id", projectId).eq("column_index", removeIndex);
+              // Update project column_count
+              const next = columnCount - 1;
+              await supabase.from("projects").update({ column_count: next }).eq("id", projectId);
+              setColumnCount(next);
+              setColumnDurations((prev) => {
+                const m = new Map(prev);
+                m.delete(removeIndex);
+                return m;
+              });
+              await refreshStems();
+            }}
             renderColumnHeader={(col) => (
               <Stack direction="row" spacing={1} alignItems="center" sx={{ width: "100%" }}>
+                <IconButton
+                  size="small"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    // Toggle per-column loop play (scene mode)
+                    if (transportPlaying && transportMode === "scene" && activeSection === col) {
+                      stopTransport();
+                      return;
+                    }
+                    void startSceneSection(col);
+                  }}
+                  aria-label={transportPlaying && transportMode === "scene" && activeSection === col ? "Stop column" : "Play column"}
+                >
+                  {transportPlaying && transportMode === "scene" && activeSection === col ? (
+                    <StopIcon fontSize="small" />
+                  ) : (
+                    <PlayArrowIcon fontSize="small" />
+                  )}
+                </IconButton>
                 <Typography fontWeight={900} variant="body2" sx={{ flex: 1 }}>
                   Col {col + 1}
                 </Typography>
@@ -1201,6 +1378,31 @@ export default function ProjectPage() {
                 )}
               </Stack>
             )}
+            currentUserId={userId}
+            onDeleteStem={async (stemId) => {
+              const ok = confirm("Delete your submission? This cannot be undone.");
+              if (!ok) return;
+              // Find storage path
+              const found = Array.from(cellSubmissions.values())
+                .flat()
+                .find((s) => s.stemId === stemId);
+              const storagePath = found?.storagePath ?? null;
+              // Prevent deleting locked stems (UI already hides, but just in case)
+              if (found?.locked) {
+                alert("This submission is locked by the owner and cannot be deleted.");
+                return;
+              }
+              try {
+                if (storagePath && !(storagePath.startsWith("http://") || storagePath.startsWith("https://"))) {
+                  await supabase.storage.from("stems").remove([storagePath]);
+                }
+              } catch {
+                // ignore (still delete DB row)
+              }
+              const { error } = await supabase.from("stems").delete().eq("id", stemId);
+              if (error) alert(error.message);
+              await refreshStems();
+            }}
             onAiMidi={async (stemType: StemType, _columnIndex: number) => {
               const engine = getAudioEngine();
               await engine.enable();
@@ -1354,6 +1556,9 @@ export default function ProjectPage() {
                 return;
               }
 
+              const trackCfg = trackSettings.get(stemType) ?? { inputMode: "audio", recordMode: "dry", fx: {} };
+              const isVirtualTrack = trackCfg.inputMode === "virtual_synth" || trackCfg.inputMode === "virtual_drums";
+
               // Stop current box recording
               if (stemRecTarget && stemRecTarget.stemType === stemType && stemRecTarget.columnIndex === columnIndex) {
                 if (stemRecPhase === "countin") {
@@ -1361,6 +1566,7 @@ export default function ProjectPage() {
                   countInTimerRef.current = null;
                   setStemRecTarget(null);
                   setStemRecPhase("idle");
+                  setArmedVirtualRecordTarget(null);
                   return;
                 }
                 if (stemRecPhase === "recording") {
@@ -1372,6 +1578,16 @@ export default function ProjectPage() {
               // If another box recording is active, block
               if (stemRecPhase !== "idle") {
                 alert("Finish the current stem recording first.");
+                return;
+              }
+
+              // Virtual tracks: arm first; actual recording starts when Virtual dialog is opened (after record is hit)
+              if (isVirtualTrack && !virtualOpen) {
+                setArmedVirtualRecordTarget({ stemType, columnIndex });
+                // Set virtual mode to match track input
+                setVirtualMode(trackCfg.inputMode === "virtual_drums" ? "drums" : "synth");
+                setVirtualOpen(true);
+                alert("Armed recording. Virtual instrument opened — recording will start after you open it.");
                 return;
               }
 
@@ -1582,6 +1798,68 @@ export default function ProjectPage() {
                         })}
                         onChangeCommitted={(_, v) => setFx({ gain: Number(v) })}
                       />
+                    </Box>
+                    <Box>
+                      <Typography variant="body2" color="text.secondary">
+                        Distortion
+                      </Typography>
+                      <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+                        <Box sx={{ flex: 1, minWidth: 220 }}>
+                          <Typography variant="caption" color="text.secondary">
+                            Amount
+                          </Typography>
+                          <Slider
+                            min={0}
+                            max={1}
+                            step={0.01}
+                            value={typeof fx.distortion === "number" ? fx.distortion : 0}
+                            onChangeCommitted={(_, v) => setFx({ distortion: Number(v) })}
+                          />
+                        </Box>
+                        <Box sx={{ flex: 1, minWidth: 220 }}>
+                          <Typography variant="caption" color="text.secondary">
+                            Wet
+                          </Typography>
+                          <Slider
+                            min={0}
+                            max={1}
+                            step={0.01}
+                            value={typeof fx.distortionWet === "number" ? fx.distortionWet : 0}
+                            onChangeCommitted={(_, v) => setFx({ distortionWet: Number(v) })}
+                          />
+                        </Box>
+                      </Stack>
+                    </Box>
+                    <Box>
+                      <Typography variant="body2" color="text.secondary">
+                        Compressor
+                      </Typography>
+                      <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+                        <Box sx={{ flex: 1, minWidth: 220 }}>
+                          <Typography variant="caption" color="text.secondary">
+                            Threshold
+                          </Typography>
+                          <Slider
+                            min={-60}
+                            max={0}
+                            step={1}
+                            value={typeof fx.compThreshold === "number" ? fx.compThreshold : -18}
+                            onChangeCommitted={(_, v) => setFx({ compThreshold: Number(v) })}
+                          />
+                        </Box>
+                        <Box sx={{ flex: 1, minWidth: 220 }}>
+                          <Typography variant="caption" color="text.secondary">
+                            Ratio
+                          </Typography>
+                          <Slider
+                            min={1}
+                            max={20}
+                            step={0.5}
+                            value={typeof fx.compRatio === "number" ? fx.compRatio : 3}
+                            onChangeCommitted={(_, v) => setFx({ compRatio: Number(v) })}
+                          />
+                        </Box>
+                      </Stack>
                     </Box>
                     <Box>
                       <Typography variant="body2" color="text.secondary">

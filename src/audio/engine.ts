@@ -34,6 +34,7 @@ export class AudioEngine {
       gain: Tone.Gain;
       eq: Tone.EQ3;
       compressor: Tone.Compressor;
+      distortion: Tone.Distortion;
       delay: Tone.FeedbackDelay;
       reverb: Tone.Reverb;
       wetOut: Tone.Gain;
@@ -75,12 +76,13 @@ export class AudioEngine {
     const gain = new Tone.Gain(1);
     const eq = new Tone.EQ3(0, 0, 0);
     const compressor = new Tone.Compressor(-18, 3);
+    const distortion = new Tone.Distortion({ distortion: 0.0, wet: 0.0 });
     const delay = new Tone.FeedbackDelay("8n", 0.0);
     const reverb = new Tone.Reverb({ decay: 2.2, wet: 0.0 });
     const wetOut = new Tone.Gain(1);
     // Track chain -> master
-    dryIn.chain(gain, eq, compressor, delay, reverb, wetOut, this.masterIn);
-    const t = { dryIn, gain, eq, compressor, delay, reverb, wetOut };
+    dryIn.chain(gain, eq, compressor, distortion, delay, reverb, wetOut, this.masterIn);
+    const t = { dryIn, gain, eq, compressor, distortion, delay, reverb, wetOut };
     this.tracks.set(key, t);
     return t;
   }
@@ -105,6 +107,10 @@ export class AudioEngine {
       eqLow?: number;
       eqMid?: number;
       eqHigh?: number;
+      compThreshold?: number;
+      compRatio?: number;
+      distortion?: number;
+      distortionWet?: number;
       delayWet?: number;
       reverbWet?: number;
     },
@@ -114,6 +120,10 @@ export class AudioEngine {
     if (typeof params.eqLow === "number") t.eq.low.value = params.eqLow;
     if (typeof params.eqMid === "number") t.eq.mid.value = params.eqMid;
     if (typeof params.eqHigh === "number") t.eq.high.value = params.eqHigh;
+    if (typeof params.compThreshold === "number") t.compressor.threshold.value = params.compThreshold;
+    if (typeof params.compRatio === "number") t.compressor.ratio.value = params.compRatio;
+    if (typeof params.distortion === "number") t.distortion.distortion = params.distortion;
+    if (typeof params.distortionWet === "number") t.distortion.wet.value = params.distortionWet;
     if (typeof params.delayWet === "number") t.delay.wet.value = params.delayWet;
     if (typeof params.reverbWet === "number") t.reverb.wet.value = params.reverbWet;
   }

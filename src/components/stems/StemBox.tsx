@@ -20,6 +20,7 @@ import StopIcon from "@mui/icons-material/Stop";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import LockIcon from "@mui/icons-material/Lock";
 import AddIcon from "@mui/icons-material/Add";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import type { StemType } from "@/lib/stems/types";
 
 export type StemBoxStatus = "empty" | "pending" | "approved";
@@ -43,9 +44,11 @@ export function StemBox(props: {
     selected?: boolean;
   }[];
   isOwner?: boolean;
+  currentUserId?: string | null;
   onLockStem?: (stemId: string) => void;
   onPlayStem?: (stemId: string) => void;
   onSelectStem?: (stemType: StemType, columnIndex: number, stemId: string) => void;
+  onDeleteStem?: (stemId: string) => void;
 }) {
   const [openAll, setOpenAll] = React.useState(false);
   const submissions = props.submissions ?? [];
@@ -266,6 +269,25 @@ export function StemBox(props: {
                         }}
                       >
                         <LockIcon sx={{ fontSize: 14 }} />
+                      </IconButton>
+                    </Tooltip>
+                  ) : null}
+                  {props.currentUserId && props.onDeleteStem && props.currentUserId === s.userId && !s.locked ? (
+                    <Tooltip title="Delete your submission">
+                      <IconButton
+                        size="small"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          props.onDeleteStem?.(s.stemId);
+                        }}
+                        sx={{
+                          position: "absolute",
+                          right: -6,
+                          top: -6,
+                          bgcolor: "rgba(0,0,0,0.45)",
+                        }}
+                      >
+                        <DeleteOutlineIcon sx={{ fontSize: 14 }} />
                       </IconButton>
                     </Tooltip>
                   ) : null}

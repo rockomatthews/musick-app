@@ -142,7 +142,17 @@ export function VirtualKeyboardDialog(props: {
       window.removeEventListener("keyup", onUp);
       held.current.clear();
     };
-  }, [props.open]);
+  }, [props.mode, props.open]);
+
+  // When switching modes, release any held synth notes so we don't get \"stuck\" piano notes.
+  React.useEffect(() => {
+    held.current.clear();
+    try {
+      synthRef.current?.releaseAll();
+    } catch {
+      // ignore
+    }
+  }, [props.mode]);
 
   return (
     <Dialog open={props.open} onClose={props.onClose} maxWidth="md" fullWidth>
