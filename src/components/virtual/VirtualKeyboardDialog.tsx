@@ -106,7 +106,8 @@ export function VirtualKeyboardDialog(props: {
         if (!dref) return;
         if (d.kind === "kick") dref.kick.triggerAttackRelease("C1", "16n");
         if (d.kind === "snare") dref.snare.triggerAttackRelease("16n");
-        if (d.kind === "hat") dref.hat.triggerAttackRelease("16n");
+        // MetalSynth requires (note, duration, time?, velocity?)
+        if (d.kind === "hat") dref.hat.triggerAttackRelease("C6", "16n");
         if (d.kind === "clap") dref.clap.triggerAttackRelease("16n");
         if (d.kind === "tom") dref.tom.triggerAttackRelease("G2", "16n");
         return;
