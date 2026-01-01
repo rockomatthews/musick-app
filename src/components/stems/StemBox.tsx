@@ -1,12 +1,25 @@
 "use client";
 
 import * as React from "react";
-import { Avatar, Box, Chip, IconButton, Paper, Stack, Tooltip, Typography } from "@mui/material";
+import {
+  Avatar,
+  Box,
+  Chip,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  IconButton,
+  Paper,
+  Stack,
+  Tooltip,
+  Typography,
+} from "@mui/material";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import FiberManualRecordIcon from "@mui/icons-material/FiberManualRecord";
 import StopIcon from "@mui/icons-material/Stop";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import LockIcon from "@mui/icons-material/Lock";
+import AddIcon from "@mui/icons-material/Add";
 import type { StemType } from "@/lib/stems/types";
 
 export type StemBoxStatus = "empty" | "pending" | "approved";
@@ -21,11 +34,25 @@ export function StemBox(props: {
   canPlay?: boolean;
   isPlaying?: boolean;
   onPlayToggle?: (stemType: StemType, columnIndex: number) => void;
-  submissions?: { userId: string; label: string; avatarUrl: string | null; stemId: string; locked: boolean }[];
+  submissions?: {
+    userId: string;
+    label: string;
+    avatarUrl: string | null;
+    stemId: string;
+    locked: boolean;
+    selected?: boolean;
+  }[];
   isOwner?: boolean;
   onLockStem?: (stemId: string) => void;
   onPlayStem?: (stemId: string) => void;
+  onSelectStem?: (stemType: StemType, columnIndex: number, stemId: string) => void;
 }) {
+  const [openAll, setOpenAll] = React.useState(false);
+  const submissions = props.submissions ?? [];
+  const maxInline = 8;
+  const hasOverflow = submissions.length > maxInline;
+  const inline = submissions.slice(0, maxInline);
+
   const label =
     props.status === "empty" ? "Empty" : props.status === "pending" ? "Pending approval" : "Approved";
 
@@ -92,18 +119,28 @@ export function StemBox(props: {
 
         {props.submissions && props.submissions.length > 0 ? (
           <Stack direction="row" spacing={1} alignItems="center" sx={{ overflowX: "auto", pb: 0.25 }}>
-            {props.submissions.slice(0, 8).map((s) => (
+            {inline.map((s) => (
               <Tooltip key={s.stemId} title={s.locked ? `${s.label} (locked)` : s.label}>
                 <span style={{ position: "relative", display: "inline-flex" }}>
                   <IconButton
                     size="small"
                     onClick={(e) => {
                       e.stopPropagation();
+                      props.onSelectStem?.(props.stemType, props.columnIndex, s.stemId);
                       props.onPlayStem?.(s.stemId);
                     }}
                     sx={{ p: 0 }}
                   >
-                    <Avatar src={s.avatarUrl ?? undefined} sx={{ width: 26, height: 26, fontSize: 12 }}>
+                    <Avatar
+                      src={s.avatarUrl ?? undefined}
+                      sx={{
+                        width: 26,
+                        height: 26,
+                        fontSize: 12,
+                        outline: s.selected ? "2px solid rgba(255,255,255,0.9)" : "2px solid transparent",
+                        outlineOffset: 1,
+                      }}
+                    >
                       {s.label.slice(0, 1).toUpperCase()}
                     </Avatar>
                   </IconButton>
@@ -148,10 +185,96 @@ export function StemBox(props: {
                 </span>
               </Tooltip>
             ))}
+            {hasOverflow ? (
+              <Tooltip title="Show all submissions">
+                <IconButton
+                  size="small"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setOpenAll(true);
+                  }}
+                >
+                  <AddIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            ) : null}
           </Stack>
         ) : null}
         <Box sx={{ height: 8, borderRadius: 999, bgcolor: "rgba(255,255,255,0.08)" }} />
       </Stack>
+
+      <Dialog open={openAll} onClose={() => setOpenAll(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Submissions</DialogTitle>
+        <DialogContent>
+          <Stack direction="row" spacing={1} flexWrap="wrap">
+            {submissions.map((s) => (
+              <Tooltip key={s.stemId} title={s.locked ? `${s.label} (locked)` : s.label}>
+                <span style={{ position: "relative", display: "inline-flex", margin: 4 }}>
+                  <IconButton
+                    onClick={() => {
+                      props.onSelectStem?.(props.stemType, props.columnIndex, s.stemId);
+                      props.onPlayStem?.(s.stemId);
+                      setOpenAll(false);
+                    }}
+                    sx={{ p: 0 }}
+                  >
+                    <Avatar
+                      src={s.avatarUrl ?? undefined}
+                      sx={{
+                        width: 36,
+                        height: 36,
+                        fontSize: 14,
+                        outline: s.selected ? "2px solid rgba(255,255,255,0.9)" : "2px solid transparent",
+                        outlineOffset: 2,
+                      }}
+                    >
+                      {s.label.slice(0, 1).toUpperCase()}
+                    </Avatar>
+                  </IconButton>
+                  {s.locked ? (
+                    <Box
+                      sx={{
+                        position: "absolute",
+                        right: -4,
+                        bottom: -4,
+                        width: 18,
+                        height: 18,
+                        borderRadius: "999px",
+                        bgcolor: "success.main",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        border: "1px solid rgba(0,0,0,0.4)",
+                      }}
+                    >
+                      <LockIcon sx={{ fontSize: 12, color: "black" }} />
+                    </Box>
+                  ) : null}
+                  {props.isOwner && props.onLockStem ? (
+                    <Tooltip title="Lock as default">
+                      <IconButton
+                        size="small"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          props.onLockStem?.(s.stemId);
+                        }}
+                        sx={{
+                          position: "absolute",
+                          left: -6,
+                          bottom: -6,
+                          bgcolor: "rgba(0,0,0,0.45)",
+                        }}
+                      >
+                        <LockIcon sx={{ fontSize: 14 }} />
+                      </IconButton>
+                    </Tooltip>
+                  ) : null}
+                </span>
+              </Tooltip>
+            ))}
+          </Stack>
+        </DialogContent>
+      </Dialog>
     </Paper>
   );
 }

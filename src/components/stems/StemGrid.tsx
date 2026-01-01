@@ -20,6 +20,7 @@ export function StemGrid(props: {
   isOwner?: boolean;
   onLockStem?: (stemId: string) => void;
   onPlayStem?: (stemId: string) => void;
+  onSelectStem?: (stemType: StemType, columnIndex: number, stemId: string) => void;
   renderColumnHeader?: (columnIndex: number) => React.ReactNode;
 }) {
   const statusFor = props.statusFor ?? (() => "empty" as StemBoxStatus);
@@ -66,6 +67,7 @@ export function StemGrid(props: {
                 isOwner={props.isOwner}
                 onLockStem={props.onLockStem}
                 onPlayStem={props.onPlayStem}
+                onSelectStem={props.onSelectStem}
               />
             ))}
           </Stack>

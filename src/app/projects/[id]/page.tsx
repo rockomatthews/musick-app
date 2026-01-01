@@ -9,6 +9,9 @@ import {
   Box,
   Button,
   Container,
+  Dialog,
+  DialogContent,
+  DialogTitle,
   Divider,
   FormControl,
   InputLabel,
@@ -36,7 +39,7 @@ import { StemGrid } from "@/components/stems/StemGrid";
 import { getAudioEngine } from "@/audio/engine";
 import { getMidiManager } from "@/midi/manager";
 import * as Tone from "tone";
-import { getMasterRecorder } from "@/audio/recorder";
+import { getMasterRecorder, NodeRecorder } from "@/audio/recorder";
 import { MagentaMidiProvider, playAiMidi } from "@/ai/magenta/midi";
 import type { StemType } from "@/lib/stems/types";
 import { ProfileMenu } from "@/components/ProfileMenu";
@@ -65,6 +68,8 @@ export default function ProjectPage() {
   const [midiInputId, setMidiInputId] = React.useState<string>("");
   const [lastMidi, setLastMidi] = React.useState<string>("");
   const [virtualOpen, setVirtualOpen] = React.useState(false);
+  const [virtualMode, setVirtualMode] = React.useState<"synth" | "drums">("synth");
+  const [fxDialogStemType, setFxDialogStemType] = React.useState<StemType | null>(null);
 
   const [fxGain, setFxGain] = React.useState(1);
   const [fxDelay, setFxDelay] = React.useState(0.25);
@@ -95,17 +100,31 @@ export default function ProjectPage() {
   const [cellLatestStemId, setCellLatestStemId] = React.useState<Map<string, string>>(new Map());
   const [playingCellKey, setPlayingCellKey] = React.useState<string | null>(null);
   const [cellSubmissions, setCellSubmissions] = React.useState<
-    Map<string, { userId: string; stemId: string; audioUrl: string | null; locked: boolean }[]>
+    Map<
+      string,
+      { userId: string; stemId: string; audioUrl: string | null; locked: boolean; playCount: number; createdAt: string }[]
+    >
   >(new Map());
+  const [cellSelectedStemId, setCellSelectedStemId] = React.useState<Map<string, string>>(new Map());
   const [profileMap, setProfileMap] = React.useState<Map<string, { label: string; avatarUrl: string | null }>>(
     new Map(),
   );
+  const [trackSettings, setTrackSettings] = React.useState<
+    Map<StemType, { inputMode: "audio" | "midi" | "virtual_synth" | "virtual_drums"; recordMode: "dry" | "wet"; fx: any }>
+  >(new Map());
+  const [transportMode, setTransportMode] = React.useState<"scene" | "arrangement">("scene");
+  const [transportLoop, setTransportLoop] = React.useState(true);
+  const [transportPlaying, setTransportPlaying] = React.useState(false);
+  const [activeSection, setActiveSection] = React.useState(0);
+  const transportTimerRef = React.useRef<number | null>(null);
+  const transportPlayersRef = React.useRef<Map<string, Tone.Player>>(new Map());
 
   const [stemRecTarget, setStemRecTarget] = React.useState<{ stemType: StemType; columnIndex: number } | null>(null);
   const [stemRecPhase, setStemRecPhase] = React.useState<"idle" | "countin" | "recording">("idle");
   const countInTimerRef = React.useRef<number | null>(null);
   const cellPlayerRef = React.useRef<Tone.Player | null>(null);
   const stemAutoStopRef = React.useRef<number | null>(null);
+  const stemRecorderRef = React.useRef<NodeRecorder | null>(null);
   const stemRecTargetRef = React.useRef<{ stemType: StemType; columnIndex: number } | null>(null);
   const stemRecPhaseRef = React.useRef<"idle" | "countin" | "recording">("idle");
 
@@ -119,7 +138,7 @@ export default function ProjectPage() {
   const refreshStems = React.useCallback(async () => {
     const { data: stems } = await supabase
       .from("stems")
-      .select("id,stem_type,column_index,status,created_at,created_by,locked,stem_assets(kind,storage_path)")
+      .select("id,stem_type,column_index,status,created_at,created_by,locked,play_count,stem_assets(kind,storage_path)")
       .eq("project_id", projectId)
       .order("created_at", { ascending: false });
 
@@ -129,7 +148,10 @@ export default function ProjectPage() {
     const latestStemIdMap = new Map<string, string>();
     const pending: { id: string; stem_type: string; column_index: number; created_at: string; created_by: string }[] = [];
     const approvedAudioNext: { stemId: string; stemType: string; columnIndex: number; url: string }[] = [];
-    const submissionsMap = new Map<string, { userId: string; stemId: string; audioUrl: string | null; locked: boolean }[]>();
+    const submissionsMap = new Map<
+      string,
+      { userId: string; stemId: string; audioUrl: string | null; locked: boolean; playCount: number; createdAt: string }[]
+    >();
     const userIds = new Set<string>();
 
     // Iterate newest→oldest (we requested created_at desc), so first audio we see per cell becomes "latest"
@@ -137,6 +159,8 @@ export default function ProjectPage() {
       const k = `${s.stem_type}:${s.column_index}`;
       const st: "pending" | "approved" | "rejected" = s.status;
       const locked = Boolean(s.locked);
+      const playCount = Number(s.play_count ?? 0);
+      const createdAt = String(s.created_at ?? "");
 
       // Choose best visible status per cell: approved > pending > empty
       const cur = statusMap.get(k);
@@ -174,7 +198,7 @@ export default function ProjectPage() {
       const uid = String(s.created_by ?? "");
       if (uid) userIds.add(uid);
       const list = submissionsMap.get(k) ?? [];
-      list.push({ userId: uid, stemId: s.id, audioUrl, locked });
+      list.push({ userId: uid, stemId: s.id, audioUrl, locked, playCount, createdAt });
       submissionsMap.set(k, list);
 
       if (st === "pending") {
@@ -229,8 +253,10 @@ export default function ProjectPage() {
       stemAutoStopRef.current = null;
 
       try {
-        const rec = getMasterRecorder();
+        const rec = stemRecorderRef.current;
+        if (!rec) throw new Error("Stem recorder not initialized");
         const res = await rec.stop();
+        stemRecorderRef.current = null;
         setStemRecPhase("idle");
         setStemRecTarget(null);
 
@@ -256,6 +282,7 @@ export default function ProjectPage() {
           });
           if (upErr) throw upErr;
 
+          const trackCfg = trackSettings.get(stemType) ?? { inputMode: "audio", recordMode: "dry", fx: {} };
           const { error: assetErr } = await supabase.from("stem_assets").insert({
             stem_id: stem.id,
             kind: "audio",
@@ -265,6 +292,9 @@ export default function ProjectPage() {
               countIn: 3,
               bpm,
               durationSec: columnDurations.get(columnIndex) ?? 8,
+              input_mode: trackCfg.inputMode,
+              record_mode: trackCfg.recordMode,
+              fx_snapshot: trackCfg.fx ?? {},
             },
           });
           if (assetErr) throw assetErr;
@@ -281,8 +311,137 @@ export default function ProjectPage() {
         await refreshStems();
       }
     },
-    [bpm, columnDurations, projectId, refreshStems, supabase, userId],
+    [bpm, columnDurations, projectId, refreshStems, supabase, trackSettings, userId],
   );
+
+  const stopTransport = React.useCallback(() => {
+    if (transportTimerRef.current) window.clearTimeout(transportTimerRef.current);
+    transportTimerRef.current = null;
+    for (const p of transportPlayersRef.current.values()) {
+      try {
+        p.stop();
+        p.dispose();
+      } catch {
+        // ignore
+      }
+    }
+    transportPlayersRef.current.clear();
+    setTransportPlaying(false);
+  }, []);
+
+  function getBestClip(stemType: StemType, columnIndex: number): { stemId: string; url: string } | null {
+    const k = `${stemType}:${columnIndex}`;
+    const subs = cellSubmissions.get(k) ?? [];
+    const locked = subs.find((s) => s.locked && s.audioUrl) ?? null;
+    const selectedStemId = cellSelectedStemId.get(k) ?? null;
+    const selected = selectedStemId ? subs.find((s) => s.stemId === selectedStemId && s.audioUrl) : null;
+    const best =
+      locked ??
+      selected ??
+      subs
+        .filter((s) => Boolean(s.audioUrl))
+        .sort((a, b) => {
+          if (b.playCount !== a.playCount) return b.playCount - a.playCount;
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        })[0] ??
+      null;
+    if (!best?.audioUrl) return null;
+    return { stemId: best.stemId, url: best.audioUrl };
+  }
+
+  const playSection = React.useCallback(
+    async (sectionIndex: number) => {
+      const engine = getAudioEngine();
+      await engine.enable();
+
+      // Stop any manual cell playback first
+      try {
+        cellPlayerRef.current?.stop();
+        cellPlayerRef.current?.dispose();
+      } catch {
+        // ignore
+      }
+      cellPlayerRef.current = null;
+      setPlayingCellKey(null);
+
+      // Stop previous transport players (hard-cut)
+      for (const p of transportPlayersRef.current.values()) {
+        try {
+          p.stop();
+          p.dispose();
+        } catch {
+          // ignore
+        }
+      }
+      transportPlayersRef.current.clear();
+
+      const startAt = Tone.now() + 0.05;
+      const stemTypes: StemType[] = ["vocals", "guitar_synth", "bass", "drums"];
+      for (const st of stemTypes) {
+        const clip = getBestClip(st, sectionIndex);
+        if (!clip) continue;
+        const player = new Tone.Player(clip.url);
+        player.connect(engine.getTrackDryInput(st));
+        await player.load(clip.url);
+        player.start(startAt);
+        transportPlayersRef.current.set(`${st}:${sectionIndex}`, player);
+        try {
+          await supabase.rpc("increment_stem_play_count", { stem_id: clip.stemId });
+        } catch {
+          // ignore
+        }
+      }
+    },
+    [cellSelectedStemId, cellSubmissions, supabase],
+  );
+
+  const startTransport = React.useCallback(async () => {
+    if (transportPlaying) return;
+    setTransportPlaying(true);
+
+    const playOneAndSchedule = async (sectionIndex: number) => {
+      setActiveSection(sectionIndex);
+      await playSection(sectionIndex);
+      const durationSec = columnDurations.get(sectionIndex) ?? 8;
+      transportTimerRef.current = window.setTimeout(() => {
+        void (async () => {
+          if (transportMode === "scene") {
+            if (transportLoop) {
+              await playOneAndSchedule(sectionIndex);
+            } else {
+              stopTransport();
+            }
+            return;
+          }
+          // arrangement
+          const next = sectionIndex + 1;
+          if (next >= columnCount) {
+            stopTransport();
+            return;
+          }
+          await playOneAndSchedule(next);
+        })();
+      }, durationSec * 1000);
+    };
+
+    const startSectionIndex = transportMode === "scene" ? activeSection : 0;
+    await playOneAndSchedule(startSectionIndex);
+  }, [
+    activeSection,
+    columnCount,
+    columnDurations,
+    playSection,
+    stopTransport,
+    transportLoop,
+    transportMode,
+    transportPlaying,
+  ]);
+
+  React.useEffect(() => {
+    return () => {
+      stopTransport();
+    };
+  }, [stopTransport]);
 
   React.useEffect(() => {
     (async () => {
@@ -324,6 +483,35 @@ export default function ProjectPage() {
         map.set(Number(c.column_index), Number(c.duration_sec));
       }
       setColumnDurations(map);
+
+      // Load per-track settings (input + record mode + fx)
+      const stemTypes: StemType[] = ["vocals", "guitar_synth", "bass", "drums"];
+      const defaults = new Map<StemType, { inputMode: any; recordMode: any; fx: any }>([
+        ["vocals", { inputMode: "audio", recordMode: "dry", fx: { gain: 1, delayWet: 0, reverbWet: 0 } }],
+        ["guitar_synth", { inputMode: "midi", recordMode: "dry", fx: { gain: 1, delayWet: 0.1, reverbWet: 0.1 } }],
+        ["bass", { inputMode: "midi", recordMode: "dry", fx: { gain: 1, delayWet: 0, reverbWet: 0.05 } }],
+        ["drums", { inputMode: "virtual_drums", recordMode: "dry", fx: { gain: 1, delayWet: 0, reverbWet: 0.05 } }],
+      ]);
+
+      const { data: tracks } = await supabase
+        .from("stem_tracks")
+        .select("stem_type,input_mode,record_mode,fx_json")
+        .eq("project_id", projectId);
+
+      const mapTracks = new Map<StemType, { inputMode: any; recordMode: any; fx: any }>();
+      for (const st of stemTypes) {
+        mapTracks.set(st, defaults.get(st)!);
+      }
+      for (const t of (tracks as any[]) ?? []) {
+        const st = String(t.stem_type) as StemType;
+        if (!stemTypes.includes(st)) continue;
+        mapTracks.set(st, {
+          inputMode: t.input_mode ?? mapTracks.get(st)!.inputMode,
+          recordMode: t.record_mode ?? mapTracks.get(st)!.recordMode,
+          fx: (t.fx_json as any) ?? mapTracks.get(st)!.fx,
+        });
+      }
+      setTrackSettings(mapTracks);
     })();
   }, [projectId, refreshStems, router, supabase]);
 
@@ -361,6 +549,26 @@ export default function ProjectPage() {
     );
   }
 
+  async function upsertTrack(stemType: StemType, next: { inputMode: string; recordMode: string; fx: any }) {
+    // Only the owner can update track settings (RLS). Non-owners will just update local UI.
+    setTrackSettings((prev) => {
+      const m = new Map(prev);
+      m.set(stemType, next as any);
+      return m;
+    });
+    if (!isOwner) return;
+    await supabase.from("stem_tracks").upsert(
+      {
+        project_id: projectId,
+        stem_type: stemType,
+        input_mode: next.inputMode,
+        record_mode: next.recordMode,
+        fx_json: next.fx ?? {},
+      },
+      { onConflict: "project_id,stem_type" },
+    );
+  }
+
   async function enableAudio() {
     const engine = getAudioEngine();
     await engine.enable();
@@ -387,7 +595,12 @@ export default function ProjectPage() {
     await engine.enable();
     const mgr = getMidiManager();
     await mgr.enable();
-    mgr.setOutput(engine.getFxInput());
+    // Route MIDI synth into the first track configured for MIDI (fallback: guitar/synth)
+    const stemTypes: StemType[] = ["vocals", "guitar_synth", "bass", "drums"];
+    const target =
+      stemTypes.find((st) => trackSettings.get(st)?.inputMode === "midi") ??
+      ("guitar_synth" as StemType);
+    mgr.setOutput(engine.getTrackDryInput(target));
     setMidiEnabled(true);
     setMidiInputs(mgr.listInputs());
   }
@@ -414,9 +627,50 @@ export default function ProjectPage() {
     engine.setFx({ gain: fxGain, delayWet: fxDelay, reverbWet: fxReverb });
   }, [audioEnabled, midiEnabled, fxDelay, fxGain, fxReverb]);
 
-  async function playApprovedStem(stemId: string, url: string) {
+  React.useEffect(() => {
+    if (!trackSettings || trackSettings.size === 0) return;
+    const engine = getAudioEngine();
+    void (async () => {
+      await engine.enable();
+      for (const [stemType, cfg] of trackSettings.entries()) {
+        const fx = cfg.fx ?? {};
+        engine.setTrackFx(stemType, {
+          gain: typeof fx.gain === "number" ? fx.gain : 1,
+          delayWet: typeof fx.delayWet === "number" ? fx.delayWet : 0,
+          reverbWet: typeof fx.reverbWet === "number" ? fx.reverbWet : 0,
+          eqLow: typeof fx.eqLow === "number" ? fx.eqLow : 0,
+          eqMid: typeof fx.eqMid === "number" ? fx.eqMid : 0,
+          eqHigh: typeof fx.eqHigh === "number" ? fx.eqHigh : 0,
+        });
+      }
+
+      // Monitoring routes live audio input into the first Audio track (fallback: vocals)
+      const stemTypes: StemType[] = ["vocals", "guitar_synth", "bass", "drums"];
+      const audioTarget =
+        stemTypes.find((st) => trackSettings.get(st)?.inputMode === "audio") ??
+        ("vocals" as StemType);
+      engine.setMonitorTarget(engine.getTrackDryInput(audioTarget));
+
+      // If MIDI is enabled, route it to the currently configured MIDI track
+      if (midiEnabled) {
+        const midiTarget =
+          stemTypes.find((st) => trackSettings.get(st)?.inputMode === "midi") ??
+          ("guitar_synth" as StemType);
+        getMidiManager().setOutput(engine.getTrackDryInput(midiTarget));
+      }
+    })();
+  }, [midiEnabled, trackSettings]);
+
+  async function playStem(stemType: StemType, stemId: string, url: string) {
     const engine = getAudioEngine();
     await engine.enable();
+
+    // Track popularity (safe via RPC)
+    try {
+      await supabase.rpc("increment_stem_play_count", { stem_id: stemId });
+    } catch {
+      // ignore
+    }
 
     if (playerRef.current) {
       try {
@@ -429,7 +683,7 @@ export default function ProjectPage() {
     }
 
     const player = new Tone.Player(url);
-    player.connect(engine.getFxInput());
+    player.connect(engine.getTrackDryInput(stemType));
     await player.load(url);
     player.start();
 
@@ -606,6 +860,18 @@ export default function ProjectPage() {
                 <Button variant="contained" startIcon={<KeyboardIcon />} onClick={() => setVirtualOpen(true)}>
                   Open keyboard
                 </Button>
+                <FormControl size="small" sx={{ minWidth: 180 }}>
+                  <InputLabel id="virtual-mode">Virtual mode</InputLabel>
+                  <Select
+                    labelId="virtual-mode"
+                    label="Virtual mode"
+                    value={virtualMode}
+                    onChange={(e) => setVirtualMode(e.target.value as any)}
+                  >
+                    <MenuItem value="synth">Synth</MenuItem>
+                    <MenuItem value="drums">Drum machine</MenuItem>
+                  </Select>
+                </FormControl>
                 <Typography variant="body2" color="text.secondary">
                   Play with A/W/S/E/D… then record into a stem box.
                 </Typography>
@@ -613,7 +879,81 @@ export default function ProjectPage() {
             </Box>
           </Stack>
 
-          <VirtualKeyboardDialog open={virtualOpen} onClose={() => setVirtualOpen(false)} />
+          <VirtualKeyboardDialog
+            open={virtualOpen}
+            mode={virtualMode}
+            onModeChange={setVirtualMode}
+            onClose={() => setVirtualOpen(false)}
+            synthOutputStemType={
+              (Array.from(trackSettings.entries()).find(([, v]) => v.inputMode === "virtual_synth")?.[0] as StemType) ??
+              ("guitar_synth" as StemType)
+            }
+            drumsOutputStemType={
+              (Array.from(trackSettings.entries()).find(([, v]) => v.inputMode === "virtual_drums")?.[0] as StemType) ??
+              ("drums" as StemType)
+            }
+          />
+
+          <Paper variant="outlined" sx={{ p: 2 }}>
+            <Typography fontWeight={900}>Tracks (inputs + FX)</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+              Each row chooses its input source and whether recordings are Dry or Wet (post-FX). Only the owner can change these.
+            </Typography>
+            <Stack spacing={1.25} sx={{ mt: 2 }}>
+              {(["vocals", "guitar_synth", "bass", "drums"] as StemType[]).map((st) => {
+                const cfg = trackSettings.get(st) ?? { inputMode: "audio", recordMode: "dry", fx: {} };
+                return (
+                  <Stack
+                    key={st}
+                    direction={{ xs: "column", md: "row" }}
+                    spacing={2}
+                    alignItems={{ md: "center" }}
+                    sx={{ p: 1, borderRadius: 2, bgcolor: "rgba(255,255,255,0.03)" }}
+                  >
+                    <Typography fontWeight={900} sx={{ width: 160 }}>
+                      {st === "guitar_synth" ? "Guitar / Synth" : st.charAt(0).toUpperCase() + st.slice(1)}
+                    </Typography>
+                    <FormControl size="small" sx={{ minWidth: 220 }}>
+                      <InputLabel id={`${st}-input`}>Input</InputLabel>
+                      <Select
+                        labelId={`${st}-input`}
+                        label="Input"
+                        value={cfg.inputMode}
+                        onChange={(e) => void upsertTrack(st, { ...cfg, inputMode: String(e.target.value) })}
+                        disabled={!isOwner}
+                      >
+                        <MenuItem value="audio">Audio interface</MenuItem>
+                        <MenuItem value="midi">MIDI device</MenuItem>
+                        <MenuItem value="virtual_synth">Virtual synth</MenuItem>
+                        <MenuItem value="virtual_drums">Virtual drums</MenuItem>
+                      </Select>
+                    </FormControl>
+                    <FormControl size="small" sx={{ minWidth: 160 }}>
+                      <InputLabel id={`${st}-record`}>Record</InputLabel>
+                      <Select
+                        labelId={`${st}-record`}
+                        label="Record"
+                        value={cfg.recordMode}
+                        onChange={(e) => void upsertTrack(st, { ...cfg, recordMode: String(e.target.value) })}
+                        disabled={!isOwner}
+                      >
+                        <MenuItem value="dry">Dry</MenuItem>
+                        <MenuItem value="wet">Wet</MenuItem>
+                      </Select>
+                    </FormControl>
+                    <Button
+                      variant="outlined"
+                      onClick={() => setFxDialogStemType(st)}
+                      disabled={!isOwner}
+                      sx={{ minWidth: 120 }}
+                    >
+                      FX
+                    </Button>
+                  </Stack>
+                );
+              })}
+            </Stack>
+          </Paper>
 
           <Paper variant="outlined" sx={{ p: 2 }}>
             <Typography fontWeight={900} sx={{ mb: 1 }}>
@@ -738,8 +1078,9 @@ export default function ProjectPage() {
           </Paper>
 
           <Paper variant="outlined" sx={{ p: 1.5 }}>
-            <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ md: "center" }}>
-              <Stack direction="row" spacing={1.25} alignItems="center" sx={{ minWidth: 320 }}>
+            <Stack spacing={1.5}>
+              <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ md: "center" }}>
+                <Stack direction="row" spacing={1.25} alignItems="center" sx={{ minWidth: 320 }}>
                 <Typography fontWeight={900}>BPM</Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ minWidth: 40 }}>
                   {bpm}
@@ -753,10 +1094,77 @@ export default function ProjectPage() {
                   onChangeCommitted={(_, v) => void saveBpm(Number(v))}
                   sx={{ flex: 1 }}
                 />
+                </Stack>
+                <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>
+                  Count-in uses BPM. Each column is the next phase of time (a section). Recording auto-stops at that section’s duration.
+                </Typography>
               </Stack>
-              <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>
-                Count-in uses BPM. Each column has its own duration (shown above each column) and box recording auto-stops at that duration.
-              </Typography>
+
+              <Divider />
+
+              <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ md: "center" }}>
+                <Stack direction="row" spacing={2} alignItems="center" sx={{ flexWrap: "wrap" }}>
+                  <FormControl size="small" sx={{ minWidth: 160 }}>
+                    <InputLabel id="transport-mode">Mode</InputLabel>
+                    <Select
+                      labelId="transport-mode"
+                      label="Mode"
+                      value={transportMode}
+                      onChange={(e) => {
+                        stopTransport();
+                        setTransportMode(e.target.value as any);
+                      }}
+                    >
+                      <MenuItem value="scene">Scene (loop a section)</MenuItem>
+                      <MenuItem value="arrangement">Arrangement (play all sections)</MenuItem>
+                    </Select>
+                  </FormControl>
+
+                  {transportMode === "scene" ? (
+                    <FormControl size="small" sx={{ minWidth: 160 }}>
+                      <InputLabel id="active-section">Section</InputLabel>
+                      <Select
+                        labelId="active-section"
+                        label="Section"
+                        value={String(activeSection)}
+                        onChange={(e) => setActiveSection(Number(e.target.value))}
+                        disabled={transportPlaying}
+                      >
+                        {Array.from({ length: columnCount }).map((_, i) => (
+                          <MenuItem key={i} value={String(i)}>
+                            Section {i + 1} • {columnDurations.get(i) ?? 8}s
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  ) : (
+                    <Typography variant="body2" color="text.secondary">
+                      Starts at Section 1
+                    </Typography>
+                  )}
+
+                  {transportMode === "scene" ? (
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <Typography variant="body2" color="text.secondary">
+                        Loop
+                      </Typography>
+                      <Switch checked={transportLoop} onChange={(_, v) => setTransportLoop(v)} disabled={transportPlaying && transportMode !== "scene"} />
+                    </Stack>
+                  ) : null}
+                </Stack>
+
+                <Box sx={{ flex: 1 }} />
+
+                {transportPlaying ? (
+                  <Button variant="contained" color="error" startIcon={<StopIcon />} onClick={stopTransport}>
+                    Stop
+                  </Button>
+                ) : (
+                  <Button variant="contained" startIcon={<PlayArrowIcon />} onClick={() => void startTransport()}>
+                    Play
+                  </Button>
+                )}
+              </Stack>
             </Stack>
           </Paper>
 
@@ -809,11 +1217,15 @@ export default function ProjectPage() {
             submissionsFor={(stemType, columnIndex) => {
               const k = `${stemType}:${columnIndex}`;
               const subs = cellSubmissions.get(k) ?? [];
-              // Show newest first, but make locked bubble stand out (keep its locked flag)
-              return subs
+              const selected = cellSelectedStemId.get(k) ?? null;
+              const sorted = subs
                 .filter((s) => Boolean(s.audioUrl))
-                .slice(0, 12)
-                .map((s) => {
+                .sort((a, b) => {
+                  if (a.locked !== b.locked) return a.locked ? -1 : 1;
+                  if (b.playCount !== a.playCount) return b.playCount - a.playCount;
+                  return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+                });
+              return sorted.map((s) => {
                   const p = profileMap.get(s.userId);
                   return {
                     userId: s.userId,
@@ -821,6 +1233,7 @@ export default function ProjectPage() {
                     avatarUrl: p?.avatarUrl ?? null,
                     label: p?.label ?? s.userId.slice(0, 6),
                     locked: s.locked,
+                    selected: selected === s.stemId,
                   };
                 });
             }}
@@ -831,7 +1244,23 @@ export default function ProjectPage() {
                 .find((s) => s.stemId === stemId);
               const url = found?.audioUrl;
               if (!url) return;
-              await playApprovedStem(stemId, url);
+              // derive stemType from the map key (stemType:columnIndex)
+              let stemType: StemType = "vocals";
+              for (const [k, list] of cellSubmissions.entries()) {
+                if (list.some((s) => s.stemId === stemId)) {
+                  stemType = k.split(":")[0] as StemType;
+                  break;
+                }
+              }
+              await playStem(stemType, stemId, url);
+            }}
+            onSelectStem={(stemType, columnIndex, stemId) => {
+              const k = `${stemType}:${columnIndex}`;
+              setCellSelectedStemId((prev) => {
+                const m = new Map(prev);
+                m.set(k, stemId);
+                return m;
+              });
             }}
             onLockStem={async (stemId) => {
               if (!isOwner) return;
@@ -857,8 +1286,21 @@ export default function ProjectPage() {
             onPlayToggle={async (stemType, columnIndex) => {
               const k = `${stemType}:${columnIndex}`;
               // Default play should use locked if available; otherwise use latest.
-              const locked = (cellSubmissions.get(k) ?? []).find((s) => s.locked && s.audioUrl)?.audioUrl ?? null;
-              const url = locked ?? cellLatestAudioUrl.get(k);
+              const subs = cellSubmissions.get(k) ?? [];
+              const locked = subs.find((s) => s.locked && s.audioUrl) ?? null;
+              const selectedStemId = cellSelectedStemId.get(k) ?? null;
+              const selected = selectedStemId ? subs.find((s) => s.stemId === selectedStemId && s.audioUrl) : null;
+              const best =
+                locked ??
+                selected ??
+                subs
+                  .filter((s) => Boolean(s.audioUrl))
+                  .sort((a, b) => {
+                    if (b.playCount !== a.playCount) return b.playCount - a.playCount;
+                    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+                  })[0] ??
+                null;
+              const url = best?.audioUrl ?? null;
               if (!url) return;
 
               const engine = getAudioEngine();
@@ -887,11 +1329,20 @@ export default function ProjectPage() {
               cellPlayerRef.current = null;
 
               const player = new Tone.Player(url);
-              player.connect(engine.getFxInput());
+              player.connect(engine.getTrackDryInput(stemType));
               await player.load(url);
               player.start();
               cellPlayerRef.current = player;
               setPlayingCellKey(k);
+
+              // Popularity tracking on default play too
+              if (best?.stemId) {
+                try {
+                  await supabase.rpc("increment_stem_play_count", { stem_id: best.stemId });
+                } catch {
+                  // ignore
+                }
+              }
             }}
             onRecordToggle={async (stemType, columnIndex) => {
               if (!userId) {
@@ -942,8 +1393,14 @@ export default function ProjectPage() {
                 countInTimerRef.current = window.setTimeout(async () => {
                   countInTimerRef.current = null;
                   try {
-                    const rec = getMasterRecorder();
-                    await rec.start();
+                    const trackCfg = trackSettings.get(stemType) ?? { recordMode: "dry" as const };
+                    const sourceTone =
+                      trackCfg.recordMode === "wet" ? engine.getTrackWetOutput(stemType) : engine.getTrackDryInput(stemType);
+                    const sourceAudio = (sourceTone as any)?.output as AudioNode | undefined;
+                    if (!sourceAudio) throw new Error("Failed to initialize recording source");
+                    const rec = new NodeRecorder();
+                    await rec.startFrom(sourceAudio);
+                    stemRecorderRef.current = rec;
                     setStemRecPhase("recording");
 
                     // Auto-stop at per-column duration
@@ -962,8 +1419,14 @@ export default function ProjectPage() {
                 countInTimerRef.current = window.setTimeout(async () => {
                   countInTimerRef.current = null;
                   try {
-                    const rec = getMasterRecorder();
-                    await rec.start();
+                    const trackCfg = trackSettings.get(stemType) ?? { recordMode: "dry" as const };
+                    const sourceTone =
+                      trackCfg.recordMode === "wet" ? engine.getTrackWetOutput(stemType) : engine.getTrackDryInput(stemType);
+                    const sourceAudio = (sourceTone as any)?.output as AudioNode | undefined;
+                    if (!sourceAudio) throw new Error("Failed to initialize recording source");
+                    const rec = new NodeRecorder();
+                    await rec.startFrom(sourceAudio);
+                    stemRecorderRef.current = rec;
                     setStemRecPhase("recording");
 
                     const durationSec = columnDurations.get(columnIndex) ?? 8;
@@ -1091,6 +1554,107 @@ export default function ProjectPage() {
               Requires a Supabase Storage bucket named <code>stems</code> with upload allowed for authenticated users.
             </Typography>
           </Paper>
+
+          {fxDialogStemType ? (() => {
+            const st = fxDialogStemType;
+            const cfg = trackSettings.get(st) ?? { inputMode: "audio", recordMode: "dry", fx: {} };
+            const fx = cfg.fx ?? {};
+            const setFx = (patch: any) => void upsertTrack(st, { ...cfg, fx: { ...fx, ...patch } });
+            return (
+              <Dialog open onClose={() => setFxDialogStemType(null)} maxWidth="sm" fullWidth>
+                <DialogTitle>FX • {st}</DialogTitle>
+                <DialogContent>
+                  <Stack spacing={2} sx={{ mt: 1 }}>
+                    <Box>
+                      <Typography variant="body2" color="text.secondary">
+                        Gain
+                      </Typography>
+                      <Slider
+                        min={0}
+                        max={2}
+                        step={0.01}
+                        value={typeof fx.gain === "number" ? fx.gain : 1}
+                        onChange={(_, v) => setTrackSettings((prev) => {
+                          const m = new Map(prev);
+                          const cur = m.get(st) ?? cfg;
+                          m.set(st, { ...cur, fx: { ...(cur.fx ?? {}), gain: Number(v) } } as any);
+                          return m;
+                        })}
+                        onChangeCommitted={(_, v) => setFx({ gain: Number(v) })}
+                      />
+                    </Box>
+                    <Box>
+                      <Typography variant="body2" color="text.secondary">
+                        Delay Wet
+                      </Typography>
+                      <Slider
+                        min={0}
+                        max={1}
+                        step={0.01}
+                        value={typeof fx.delayWet === "number" ? fx.delayWet : 0}
+                        onChange={(_, v) => setTrackSettings((prev) => {
+                          const m = new Map(prev);
+                          const cur = m.get(st) ?? cfg;
+                          m.set(st, { ...cur, fx: { ...(cur.fx ?? {}), delayWet: Number(v) } } as any);
+                          return m;
+                        })}
+                        onChangeCommitted={(_, v) => setFx({ delayWet: Number(v) })}
+                      />
+                    </Box>
+                    <Box>
+                      <Typography variant="body2" color="text.secondary">
+                        Reverb Wet
+                      </Typography>
+                      <Slider
+                        min={0}
+                        max={1}
+                        step={0.01}
+                        value={typeof fx.reverbWet === "number" ? fx.reverbWet : 0}
+                        onChange={(_, v) => setTrackSettings((prev) => {
+                          const m = new Map(prev);
+                          const cur = m.get(st) ?? cfg;
+                          m.set(st, { ...cur, fx: { ...(cur.fx ?? {}), reverbWet: Number(v) } } as any);
+                          return m;
+                        })}
+                        onChangeCommitted={(_, v) => setFx({ reverbWet: Number(v) })}
+                      />
+                    </Box>
+                    <Box>
+                      <Typography variant="body2" color="text.secondary">
+                        EQ Low / Mid / High
+                      </Typography>
+                      <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+                        <TextField
+                          size="small"
+                          type="number"
+                          label="Low"
+                          value={typeof fx.eqLow === "number" ? fx.eqLow : 0}
+                          onChange={(e) => setFx({ eqLow: Number(e.target.value || 0) })}
+                        />
+                        <TextField
+                          size="small"
+                          type="number"
+                          label="Mid"
+                          value={typeof fx.eqMid === "number" ? fx.eqMid : 0}
+                          onChange={(e) => setFx({ eqMid: Number(e.target.value || 0) })}
+                        />
+                        <TextField
+                          size="small"
+                          type="number"
+                          label="High"
+                          value={typeof fx.eqHigh === "number" ? fx.eqHigh : 0}
+                          onChange={(e) => setFx({ eqHigh: Number(e.target.value || 0) })}
+                        />
+                      </Stack>
+                      <Typography variant="caption" color="text.secondary">
+                        Values are dB-ish; start small (e.g. -6 to +6).
+                      </Typography>
+                    </Box>
+                  </Stack>
+                </DialogContent>
+              </Dialog>
+            );
+          })() : null}
 
           <Typography color="text.secondary" variant="body2">
             Tip: click an avatar in a stem box to play that user’s submission. The owner can lock a favorite as the default play.
