@@ -111,7 +111,13 @@ export function StemBox(props: {
             ) : null}
             {props.onAiMidi ? (
               <Tooltip title="AI MIDI (Magenta)">
-                <IconButton size="small" onClick={() => props.onAiMidi?.(props.stemType, props.columnIndex)}>
+                <IconButton
+                  size="small"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    props.onAiMidi?.(props.stemType, props.columnIndex);
+                  }}
+                >
                   <AutoAwesomeIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
