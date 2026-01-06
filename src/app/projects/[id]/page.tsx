@@ -133,6 +133,7 @@ export default function ProjectPage() {
   const transportPlayersRef = React.useRef<Map<string, Tone.Player>>(new Map());
   const sectionStartMsRef = React.useRef<number | null>(null);
   const [sectionProgress, setSectionProgress] = React.useState(0); // 0..1 for activeSection only
+  const [playheadColumn, setPlayheadColumn] = React.useState<number | null>(null); // for single-stem playback progress
 
   const [stemRecTarget, setStemRecTarget] = React.useState<{ stemType: StemType; columnIndex: number } | null>(null);
   const [stemRecPhase, setStemRecPhase] = React.useState<"idle" | "countin" | "recording">("idle");
@@ -440,12 +441,14 @@ export default function ProjectPage() {
   }, []);
 
   React.useEffect(() => {
-    if (!transportPlaying) return;
+    if (!transportPlaying && playheadColumn === null) return;
     let last = -1;
     const interval = window.setInterval(() => {
       const startedAt = sectionStartMsRef.current;
       if (!startedAt) return;
-      const durationSec = columnDurations.get(activeSection) ?? 8;
+      const col = transportPlaying ? activeSection : playheadColumn;
+      if (col === null) return;
+      const durationSec = columnDurations.get(col) ?? 8;
       const durationMs = Math.max(250, durationSec * 1000);
       const p = Math.max(0, Math.min(1, (performance.now() - startedAt) / durationMs));
       // avoid excessive rerenders
@@ -455,7 +458,7 @@ export default function ProjectPage() {
       }
     }, 60);
     return () => window.clearInterval(interval);
-  }, [activeSection, columnDurations, transportPlaying]);
+  }, [activeSection, columnDurations, playheadColumn, transportPlaying]);
 
   function getBestClip(stemType: StemType, columnIndex: number): { stemId: string; url: string } | null {
     const k = `${stemType}:${columnIndex}`;
@@ -476,6 +479,22 @@ export default function ProjectPage() {
     if (!best?.audioUrl) return null;
     return { stemId: best.stemId, url: best.audioUrl };
   }
+
+  const bumpStemPlayCount = React.useCallback((stemId: string) => {
+    setCellSubmissions((prev) => {
+      const next = new Map(prev);
+      for (const [k, list] of next.entries()) {
+        let changed = false;
+        const updated = list.map((s) => {
+          if (s.stemId !== stemId) return s;
+          changed = true;
+          return { ...s, playCount: (s.playCount ?? 0) + 1 };
+        });
+        if (changed) next.set(k, updated);
+      }
+      return next;
+    });
+  }, []);
 
   const playSection = React.useCallback(
     async (sectionIndex: number) => {
@@ -515,12 +534,13 @@ export default function ProjectPage() {
         transportPlayersRef.current.set(`${st}:${sectionIndex}`, player);
         try {
           await supabase.rpc("increment_stem_play_count", { stem_id: clip.stemId });
+          bumpStemPlayCount(clip.stemId);
         } catch {
           // ignore
         }
       }
     },
-    [cellSelectedStemId, cellSubmissions, supabase],
+    [bumpStemPlayCount, cellSelectedStemId, cellSubmissions, supabase],
   );
 
   const startSceneSection = React.useCallback(
@@ -534,6 +554,7 @@ export default function ProjectPage() {
       const playOneAndSchedule = async () => {
         sectionStartMsRef.current = performance.now();
         setSectionProgress(0);
+        setPlayheadColumn(null);
         await playSection(sectionIndex);
         const durationSec = columnDurations.get(sectionIndex) ?? 8;
         transportTimerRef.current = window.setTimeout(() => {
@@ -554,6 +575,7 @@ export default function ProjectPage() {
       setActiveSection(sectionIndex);
       sectionStartMsRef.current = performance.now();
       setSectionProgress(0);
+      setPlayheadColumn(null);
       await playSection(sectionIndex);
       const durationSec = columnDurations.get(sectionIndex) ?? 8;
       transportTimerRef.current = window.setTimeout(() => {
@@ -589,6 +611,32 @@ export default function ProjectPage() {
     transportMode,
     transportPlaying,
   ]);
+
+  React.useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.code !== "Space") return;
+      const el = e.target as HTMLElement | null;
+      const tag = (el?.tagName ?? "").toLowerCase();
+      const typing =
+        tag === "input" ||
+        tag === "textarea" ||
+        tag === "select" ||
+        Boolean((el as any)?.isContentEditable);
+      if (typing) return;
+
+      e.preventDefault();
+      if (transportPlaying) {
+        stopTransport();
+        return;
+      }
+      setTransportMode("arrangement");
+      setTransportLoop(false);
+      // defer so state updates land before startTransport reads them
+      setTimeout(() => void startTransport(), 0);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [startTransport, stopTransport, transportPlaying]);
 
   React.useEffect(() => {
     return () => {
@@ -825,6 +873,7 @@ export default function ProjectPage() {
     // Track popularity (safe via RPC)
     try {
       await supabase.rpc("increment_stem_play_count", { stem_id: stemId });
+      bumpStemPlayCount(stemId);
     } catch {
       // ignore
     }
@@ -1460,6 +1509,19 @@ export default function ProjectPage() {
               </Stack>
             )}
             currentUserId={userId}
+            progressFor={(stemType, columnIndex) => {
+              // Transport playback: show progress for all stem boxes in the active section.
+              if (transportPlaying) {
+                return activeSection === columnIndex ? sectionProgress : 0;
+              }
+              // Single-cell playback: show progress only for the currently playing cell.
+              if (playingCellKey) {
+                const [st, colStr] = playingCellKey.split(":");
+                const col = Number(colStr);
+                if (st === stemType && col === columnIndex) return sectionProgress;
+              }
+              return 0;
+            }}
             onDeleteStem={async (stemId) => {
               const ok = confirm("Delete your submission? This cannot be undone.");
               if (!ok) return;
@@ -1599,6 +1661,9 @@ export default function ProjectPage() {
                 }
                 cellPlayerRef.current = null;
                 setPlayingCellKey(null);
+                setPlayheadColumn(null);
+                sectionStartMsRef.current = null;
+                setSectionProgress(0);
                 return;
               }
 
@@ -1617,11 +1682,15 @@ export default function ProjectPage() {
               player.start();
               cellPlayerRef.current = player;
               setPlayingCellKey(k);
+              setPlayheadColumn(columnIndex);
+              sectionStartMsRef.current = performance.now();
+              setSectionProgress(0);
 
               // Popularity tracking on default play too
               if (best?.stemId) {
                 try {
                   await supabase.rpc("increment_stem_play_count", { stem_id: best.stemId });
+                  bumpStemPlayCount(best.stemId);
                 } catch {
                   // ignore
                 }

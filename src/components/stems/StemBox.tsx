@@ -9,6 +9,7 @@ import {
   DialogContent,
   DialogTitle,
   IconButton,
+  LinearProgress,
   Paper,
   Stack,
   Tooltip,
@@ -34,6 +35,7 @@ export function StemBox(props: {
   onRecordToggle?: (stemType: StemType, columnIndex: number) => void;
   canPlay?: boolean;
   isPlaying?: boolean;
+  progress?: number; // 0..1
   onPlayToggle?: (stemType: StemType, columnIndex: number) => void;
   submissions?: {
     userId: string;
@@ -75,6 +77,16 @@ export function StemBox(props: {
       onClick={() => props.onRecordToggle?.(props.stemType, props.columnIndex)}
     >
       <Stack spacing={1} sx={{ width: "100%" }}>
+        <LinearProgress
+          variant="determinate"
+          value={Math.max(0, Math.min(100, (props.progress ?? 0) * 100))}
+          sx={{
+            height: 6,
+            borderRadius: 999,
+            bgcolor: "rgba(255,255,255,0.10)",
+            "& .MuiLinearProgress-bar": { borderRadius: 999 },
+          }}
+        />
         <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
           <Typography fontWeight={800} variant="body2">
             {props.columnIndex + 1}

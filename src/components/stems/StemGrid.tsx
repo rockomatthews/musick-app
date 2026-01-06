@@ -17,6 +17,7 @@ export function StemGrid(props: {
   onRecordToggle?: (stemType: StemType, columnIndex: number) => void;
   canPlayFor?: (stemType: StemType, columnIndex: number) => boolean;
   isPlayingFor?: (stemType: StemType, columnIndex: number) => boolean;
+  progressFor?: (stemType: StemType, columnIndex: number) => number;
   onPlayToggle?: (stemType: StemType, columnIndex: number) => void;
   submissionsFor?: (stemType: StemType, columnIndex: number) => { userId: string; label: string; avatarUrl: string | null; stemId: string; locked: boolean }[];
   isOwner?: boolean;
@@ -77,6 +78,7 @@ export function StemGrid(props: {
                 onRecordToggle={props.onRecordToggle}
                 canPlay={props.canPlayFor?.(s.type, col) ?? false}
                 isPlaying={props.isPlayingFor?.(s.type, col) ?? false}
+                progress={props.progressFor?.(s.type, col) ?? 0}
                 onPlayToggle={props.onPlayToggle}
                 submissions={props.submissionsFor?.(s.type, col) ?? []}
                 isOwner={props.isOwner}
