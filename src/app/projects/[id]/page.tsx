@@ -15,6 +15,7 @@ import {
   Divider,
   FormControl,
   InputLabel,
+  LinearProgress,
   List,
   ListItem,
   ListItemButton,
@@ -47,6 +48,7 @@ import type { StemType } from "@/lib/stems/types";
 import { ProfileMenu } from "@/components/ProfileMenu";
 import type { StemBoxStatus } from "@/components/stems/StemBox";
 import { VirtualKeyboardDialog } from "@/components/virtual/VirtualKeyboardDialog";
+import { SoundFxBrowserDialog } from "@/components/sfx/SoundFxBrowserDialog";
 
 export default function ProjectPage() {
   const params = useParams<{ id: string }>();
@@ -71,6 +73,7 @@ export default function ProjectPage() {
   const [lastMidi, setLastMidi] = React.useState<string>("");
   const [virtualOpen, setVirtualOpen] = React.useState(false);
   const [virtualMode, setVirtualMode] = React.useState<"synth" | "drums">("synth");
+  const [sfxOpen, setSfxOpen] = React.useState(false);
   const [fxDialogStemType, setFxDialogStemType] = React.useState<StemType | null>(null);
 
   const [fxGain, setFxGain] = React.useState(1);
@@ -128,6 +131,8 @@ export default function ProjectPage() {
   const [activeSection, setActiveSection] = React.useState(0);
   const transportTimerRef = React.useRef<number | null>(null);
   const transportPlayersRef = React.useRef<Map<string, Tone.Player>>(new Map());
+  const sectionStartMsRef = React.useRef<number | null>(null);
+  const [sectionProgress, setSectionProgress] = React.useState(0); // 0..1 for activeSection only
 
   const [stemRecTarget, setStemRecTarget] = React.useState<{ stemType: StemType; columnIndex: number } | null>(null);
   const [stemRecPhase, setStemRecPhase] = React.useState<"idle" | "countin" | "recording">("idle");
@@ -420,6 +425,8 @@ export default function ProjectPage() {
   const stopTransport = React.useCallback(() => {
     if (transportTimerRef.current) window.clearTimeout(transportTimerRef.current);
     transportTimerRef.current = null;
+    sectionStartMsRef.current = null;
+    setSectionProgress(0);
     for (const p of transportPlayersRef.current.values()) {
       try {
         p.stop();
@@ -431,6 +438,24 @@ export default function ProjectPage() {
     transportPlayersRef.current.clear();
     setTransportPlaying(false);
   }, []);
+
+  React.useEffect(() => {
+    if (!transportPlaying) return;
+    let last = -1;
+    const interval = window.setInterval(() => {
+      const startedAt = sectionStartMsRef.current;
+      if (!startedAt) return;
+      const durationSec = columnDurations.get(activeSection) ?? 8;
+      const durationMs = Math.max(250, durationSec * 1000);
+      const p = Math.max(0, Math.min(1, (performance.now() - startedAt) / durationMs));
+      // avoid excessive rerenders
+      if (last < 0 || Math.abs(p - last) > 0.01) {
+        last = p;
+        setSectionProgress(p);
+      }
+    }, 60);
+    return () => window.clearInterval(interval);
+  }, [activeSection, columnDurations, transportPlaying]);
 
   function getBestClip(stemType: StemType, columnIndex: number): { stemId: string; url: string } | null {
     const k = `${stemType}:${columnIndex}`;
@@ -507,6 +532,8 @@ export default function ProjectPage() {
       setActiveSection(sectionIndex);
 
       const playOneAndSchedule = async () => {
+        sectionStartMsRef.current = performance.now();
+        setSectionProgress(0);
         await playSection(sectionIndex);
         const durationSec = columnDurations.get(sectionIndex) ?? 8;
         transportTimerRef.current = window.setTimeout(() => {
@@ -525,6 +552,8 @@ export default function ProjectPage() {
 
     const playOneAndSchedule = async (sectionIndex: number) => {
       setActiveSection(sectionIndex);
+      sectionStartMsRef.current = performance.now();
+      setSectionProgress(0);
       await playSection(sectionIndex);
       const durationSec = columnDurations.get(sectionIndex) ?? 8;
       transportTimerRef.current = window.setTimeout(() => {
@@ -988,6 +1017,9 @@ export default function ProjectPage() {
                 <Button variant="contained" startIcon={<KeyboardIcon />} onClick={() => setVirtualOpen(true)}>
                   Open keyboard
                 </Button>
+                <Button variant="outlined" onClick={() => setSfxOpen(true)}>
+                  Sound FX
+                </Button>
                 <FormControl size="small" sx={{ minWidth: 180 }}>
                   <InputLabel id="virtual-mode">Virtual mode</InputLabel>
                   <Select
@@ -1021,6 +1053,8 @@ export default function ProjectPage() {
               ("drums" as StemType)
             }
           />
+
+          <SoundFxBrowserDialog open={sfxOpen} onClose={() => setSfxOpen(false)} projectId={projectId} />
 
           <Paper variant="outlined" sx={{ p: 2 }}>
             <Typography fontWeight={900}>Tracks (inputs + FX)</Typography>
@@ -1324,89 +1358,105 @@ export default function ProjectPage() {
               await refreshStems();
             }}
             renderColumnHeader={(col) => (
-              <Stack direction="row" spacing={1} alignItems="center" sx={{ width: "100%" }}>
-                <Button
-                  size="small"
-                  variant={transportPlaying && transportMode === "scene" && activeSection === col ? "contained" : "outlined"}
-                  color={transportPlaying && transportMode === "scene" && activeSection === col ? "error" : "primary"}
-                  startIcon={transportPlaying && transportMode === "scene" && activeSection === col ? <StopIcon /> : <PlayArrowIcon />}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    // Toggle per-column loop play (scene mode)
-                    if (transportPlaying && transportMode === "scene" && activeSection === col) {
-                      stopTransport();
-                      return;
-                    }
-                    void startSceneSection(col);
+              <Stack spacing={0.75} sx={{ width: "100%" }}>
+                <LinearProgress
+                  variant="determinate"
+                  value={transportPlaying && activeSection === col ? sectionProgress * 100 : 0}
+                  sx={{
+                    height: 6,
+                    borderRadius: 999,
+                    bgcolor: "rgba(255,255,255,0.12)",
+                    "& .MuiLinearProgress-bar": {
+                      borderRadius: 999,
+                    },
                   }}
-                  sx={{ minWidth: 92 }}
-                >
-                  {transportPlaying && transportMode === "scene" && activeSection === col ? "Stop" : "Play"}
-                </Button>
-                <Typography fontWeight={900} variant="body2" sx={{ flex: 1 }}>
-                  Col {col + 1}
-                </Typography>
-                <Tooltip title={isOwner ? "Delete this section (only last section can be deleted)" : "Owner only"}>
-                  <span>
-                    <IconButton
-                      size="small"
-                      onClick={async (e) => {
-                        e.stopPropagation();
-                        if (!isOwner) return;
-                        if (col !== columnCount - 1) {
-                          alert("For now, you can only delete the last section.");
-                          return;
-                        }
-                        // reuse the delete-last behavior
-                        await (async () => {
-                          if (columnCount <= 1) return;
-                          const ok = confirm(`Delete Section ${columnCount}? This will delete all stems in that section.`);
-                          if (!ok) return;
-                          const removeIndex = columnCount - 1;
-                          stopTransport();
-                          await supabase.from("stems").delete().eq("project_id", projectId).eq("column_index", removeIndex);
-                          await supabase.from("project_columns").delete().eq("project_id", projectId).eq("column_index", removeIndex);
-                          const next = columnCount - 1;
-                          await supabase.from("projects").update({ column_count: next }).eq("id", projectId);
-                          setColumnCount(next);
-                          setColumnDurations((prev) => {
-                            const m = new Map(prev);
-                            m.delete(removeIndex);
-                            return m;
-                          });
-                          await refreshStems();
-                        })();
-                      }}
-                      disabled={!isOwner || col !== columnCount - 1 || columnCount <= 1}
-                      aria-label="Delete section"
-                    >
-                      <DeleteOutlineIcon fontSize="small" />
-                    </IconButton>
-                  </span>
-                </Tooltip>
-                {isOwner ? (
-                  <TextField
+                />
+                <Stack direction="row" spacing={1} alignItems="center" sx={{ width: "100%" }}>
+                  <Button
                     size="small"
-                    type="number"
-                    label="sec"
-                    value={columnDurations.get(col) ?? 8}
-                    inputProps={{ min: 2, max: 600, step: 1 }}
-                    onChange={(e) => {
-                      const v = Math.max(2, Number(e.target.value || 8));
-                      setColumnDurations((prev) => {
-                        const m = new Map(prev);
-                        m.set(col, v);
-                        return m;
-                      });
+                    variant={transportPlaying && transportMode === "scene" && activeSection === col ? "contained" : "outlined"}
+                    color={transportPlaying && transportMode === "scene" && activeSection === col ? "error" : "primary"}
+                    startIcon={
+                      transportPlaying && transportMode === "scene" && activeSection === col ? <StopIcon /> : <PlayArrowIcon />
+                    }
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      // Toggle per-column loop play (scene mode)
+                      if (transportPlaying && transportMode === "scene" && activeSection === col) {
+                        stopTransport();
+                        return;
+                      }
+                      void startSceneSection(col);
                     }}
-                    onBlur={() => void saveColumnDuration(col, columnDurations.get(col) ?? 8)}
-                    sx={{ width: 110 }}
-                  />
-                ) : (
-                  <Typography variant="body2" color="text.secondary">
-                    {columnDurations.get(col) ?? 8}s
+                    sx={{ minWidth: 92 }}
+                  >
+                    {transportPlaying && transportMode === "scene" && activeSection === col ? "Stop" : "Play"}
+                  </Button>
+                  <Typography fontWeight={900} variant="body2" sx={{ flex: 1 }}>
+                    Col {col + 1}
                   </Typography>
-                )}
+                  <Tooltip title={isOwner ? "Delete this section (only last section can be deleted)" : "Owner only"}>
+                    <span>
+                      <IconButton
+                        size="small"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          if (!isOwner) return;
+                          if (col !== columnCount - 1) {
+                            alert("For now, you can only delete the last section.");
+                            return;
+                          }
+                          // reuse the delete-last behavior
+                          await (async () => {
+                            if (columnCount <= 1) return;
+                            const ok = confirm(`Delete Section ${columnCount}? This will delete all stems in that section.`);
+                            if (!ok) return;
+                            const removeIndex = columnCount - 1;
+                            stopTransport();
+                            await supabase.from("stems").delete().eq("project_id", projectId).eq("column_index", removeIndex);
+                            await supabase.from("project_columns").delete().eq("project_id", projectId).eq("column_index", removeIndex);
+                            const next = columnCount - 1;
+                            await supabase.from("projects").update({ column_count: next }).eq("id", projectId);
+                            setColumnCount(next);
+                            setColumnDurations((prev) => {
+                              const m = new Map(prev);
+                              m.delete(removeIndex);
+                              return m;
+                            });
+                            await refreshStems();
+                          })();
+                        }}
+                        disabled={!isOwner || col !== columnCount - 1 || columnCount <= 1}
+                        aria-label="Delete section"
+                      >
+                        <DeleteOutlineIcon fontSize="small" />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                  {isOwner ? (
+                    <TextField
+                      size="small"
+                      type="number"
+                      label="sec"
+                      value={columnDurations.get(col) ?? 8}
+                      inputProps={{ min: 2, max: 600, step: 1 }}
+                      onChange={(e) => {
+                        const v = Math.max(2, Number(e.target.value || 8));
+                        setColumnDurations((prev) => {
+                          const m = new Map(prev);
+                          m.set(col, v);
+                          return m;
+                        });
+                      }}
+                      onBlur={() => void saveColumnDuration(col, columnDurations.get(col) ?? 8)}
+                      sx={{ width: 110 }}
+                    />
+                  ) : (
+                    <Typography variant="body2" color="text.secondary">
+                      {columnDurations.get(col) ?? 8}s
+                    </Typography>
+                  )}
+                </Stack>
               </Stack>
             )}
             currentUserId={userId}
