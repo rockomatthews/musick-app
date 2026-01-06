@@ -613,32 +613,6 @@ export default function ProjectPage() {
   ]);
 
   React.useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.code !== "Space") return;
-      const el = e.target as HTMLElement | null;
-      const tag = (el?.tagName ?? "").toLowerCase();
-      const typing =
-        tag === "input" ||
-        tag === "textarea" ||
-        tag === "select" ||
-        Boolean((el as any)?.isContentEditable);
-      if (typing) return;
-
-      e.preventDefault();
-      if (transportPlaying) {
-        stopTransport();
-        return;
-      }
-      setTransportMode("arrangement");
-      setTransportLoop(false);
-      // defer so state updates land before startTransport reads them
-      setTimeout(() => void startTransport(), 0);
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [startTransport, stopTransport, transportPlaying]);
-
-  React.useEffect(() => {
     return () => {
       stopTransport();
     };
